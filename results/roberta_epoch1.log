@@ -1,0 +1,10 @@
+RoBERTa tagger: 124.3M params, 6513 train clips
+  [roberta] ep 1 step 100/1630 bce=0.0511 4.6 min
+  [roberta] ep 1 step 200/1630 bce=0.0444 9.5 min
+  [roberta] ep 1 step 300/1630 bce=0.0410 14.4 min
+  [roberta] ep 1 step 400/1630 bce=0.0389 19.3 min
+  [roberta] ep 1 step 500/1630 bce=0.0376 24.1 min
+  [roberta] ep 1 step 600/1630 bce=0.0364 28.7 min
+  [roberta] ep 1 step 700/1630 bce=0.0356 33.2 min
+  [roberta] ep 1 step 800/1630 bce=0.0349 38.9 min
+  [roberta] epoch 1 val {'P@5': 0.4076458752515091, 'R@5': 0.5193893519849254, 'F1@5': 0.4362756514667983, 'SetF1': 0.4349662465859649, 'avg_tags': 2.426559356136821}

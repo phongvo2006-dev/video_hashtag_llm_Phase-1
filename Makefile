@@ -1,8 +1,8 @@
 PY ?= python
 
-.PHONY: all data baselines transformer rl llm eval figures test demo clean
+.PHONY: all data baselines transformer rl roberta llm eval figures test demo clean
 
-all: data baselines transformer rl llm eval figures
+all: data baselines transformer rl roberta llm eval figures
 
 data:            ## download MSR-VTT annotations + build hashtag labels
 	bash scripts/download_data.sh
@@ -16,6 +16,9 @@ transformer:     ## supervised (BCE) Transformer
 
 rl:              ## REINFORCE/RLOO fine-tuning on set-F1 reward
 	$(PY) scripts/04_rl_finetune.py
+
+roberta:         ## fine-tune pretrained RoBERTa-base (BCE + RL); add RESUME=1 to continue an interrupted run
+	$(PY) scripts/08_finetune_roberta.py $(if $(RESUME),--resume,)
 
 llm:             ## LLM zero-shot + hybrid rerank (uses cache unless provider is set)
 	$(PY) scripts/05_llm_hashtags.py --stage zero_shot

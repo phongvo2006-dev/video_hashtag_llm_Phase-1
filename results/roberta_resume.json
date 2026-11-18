@@ -1,0 +1,17 @@
+{
+  "epochs_done": 1,
+  "best_val_f1": 0.4362756514667983,
+  "elapsed_sec": 2370.0,
+  "bce": [
+    {
+      "epoch": 1,
+      "train_bce": 0.0349,
+      "P@5": 0.4076458752515091,
+      "R@5": 0.5193893519849254,
+      "F1@5": 0.4362756514667983,
+      "SetF1": 0.4349662465859649,
+      "avg_tags": 2.426559356136821
+    }
+  ],
+  "note": "Run paused by the user after epoch 1 (session shutdown). Epoch 2 resumed from the saved epoch-1 weights with the LR schedule fast-forwarded; AdamW moments were re-initialised. train_bce for epoch 1 is the running mean at step 800/815."
+}

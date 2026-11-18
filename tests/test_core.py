@@ -31,3 +31,20 @@ def test_threshold_min_tags():
 def test_llm_parsing():
     js = parse_json('Sure!\n{"hashtags": ["#Cooking", "food", "unknowntag", "food"]}')
     assert normalise(js["hashtags"], {"cooking", "food"}) == ["cooking", "food"]
+
+
+def test_ndcg_ceiling_and_weighting():
+    from hashtagger.metrics import ndcg_at_k, weighted_recall_at_k
+    gain = {"music": 1.0, "guitar": 0.6, "stage": 0.2}
+    assert abs(ndcg_at_k(["music", "guitar", "stage"], gain) - 1.0) < 1e-9          # oracle = 1.0
+    assert ndcg_at_k(["music", "guitar"], gain) > ndcg_at_k(["music", "stage"], gain)  # agreement matters
+    assert abs(ndcg_at_k(["guitar", "music", "x"], gain, binary=True)
+               - ndcg_at_k(["music", "guitar", "y"], gain, binary=True)) < 1e-9
+    assert abs(weighted_recall_at_k(["music", "guitar"], gain) - 1.6 / 1.8) < 1e-9
+
+
+def test_category_suite():
+    from hashtagger.metrics import category_suite
+    S = np.array([[0.9, 0.5, 0.1], [0.2, 0.3, 0.8]])
+    m = category_suite(S, [0, 1, 2], [1, 2])
+    assert m["CatTop1"] == 0.5 and m["CatTop2"] == 1.0

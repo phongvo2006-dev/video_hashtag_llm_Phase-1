@@ -1,48 +1,69 @@
-### Test set — 2,990 videos, one caption each
+### Test set — 2,990 clips, one caption each (primary metric: wnDCG@5)
 
-| Model                       |   P@5 |   R@5 |   F1@5 |   SetF1 (thr 0.5) |   SetF1 (val-tuned thr) |   #tags |   Category acc |
-|-----------------------------|-------|-------|--------|-------------------|-------------------------|---------|----------------|
-| Keyword rules (no learning) | 0.26  | 0.322 |  0.274 |             0.321 |                   0.321 |     1.5 |          0.141 |
-| TF-IDF + LogReg             | 0.381 | 0.485 |  0.406 |             0.383 |                   0.402 |     2.3 |          0.491 |
-| Transformer (BCE)           | 0.414 | 0.524 |  0.441 |             0.441 |                   0.461 |     2.4 |          0.517 |
-| Transformer + RL (ours)     | 0.411 | 0.522 |  0.439 |             0.466 |                   0.465 |     3.4 |          0.515 |
-
-
-### LLM comparison — fixed random subset of 200 test videos
-
-| Model                              |   P@5 |   R@5 |   F1@5 |   SetF1 |   #tags |   Category acc |
-|------------------------------------|-------|-------|--------|---------|---------|----------------|
-| Keyword rules (no learning)        | 0.263 | 0.319 |  0.274 |   0.306 |     1.4 |          0.13  |
-| TF-IDF + LogReg                    | 0.354 | 0.443 |  0.373 |   0.351 |     2.1 |          0.475 |
-| Transformer (BCE)                  | 0.41  | 0.519 |  0.433 |   0.417 |     2.1 |          0.5   |
-| Transformer + RL (ours)            | 0.405 | 0.511 |  0.428 |   0.448 |     3.1 |          0.495 |
-| LLM zero-shot                      | 0.384 | 0.479 |  0.405 |   0.424 |     4.5 |          0.5   |
-| Transformer+RL → LLM rerank (ours) | 0.428 | 0.53  |  0.451 |   0.451 |     5   |          0.515 |
+| Model                          |   wnDCG@5 |   nDCG@5 |   wRecall@5 | Hit@5   |   F1@5 |   SetF1 (0.5) |   SetF1 (val thr) | Cat top-1   | Cat top-2   |   Cat macro-F1 |
+|--------------------------------|-----------|----------|-------------|---------|--------|---------------|-------------------|-------------|-------------|----------------|
+| Keyword rules (no learning)    |     0.302 |    0.39  |       0.327 | 76.2%   |  0.274 |         0.321 |             0.321 | 14.1%       | 24.2%       |          0.067 |
+| TF-IDF + LogReg                |     0.501 |    0.531 |       0.55  | 84.2%   |  0.406 |         0.383 |             0.402 | 49.1%       | 62.1%       |          0.412 |
+| Transformer from scratch (BCE) |     0.537 |    0.579 |       0.584 | 86.3%   |  0.441 |         0.441 |             0.461 | 51.7%       | 65.5%       |          0.424 |
+| Transformer from scratch + RL  |     0.551 |    0.573 |       0.591 | 85.7%   |  0.439 |         0.466 |             0.465 | 51.5%       | 65.3%       |          0.416 |
+| RoBERTa-base fine-tuned (BCE)  |     0.559 |    0.608 |       0.612 | 88.8%   |  0.465 |         0.472 |             0.489 | 54.7%       | 69.2%       |          0.458 |
+| RoBERTa-base fine-tuned + RL   |     0.565 |    0.604 |       0.611 | 88.2%   |  0.46  |         0.489 |             0.491 | 54.6%       | 69.4%       |          0.444 |
 
 
-### Efficiency — CPU, 1 thread
+### Clean test — 2,642 clips whose input caption never appears verbatim in training
 
-| Model                       |   Latency p50 (ms) |   p95 (ms) |   Throughput (captions/s, batch) |   Size (MB) | Params   |   Train (min, 2 vCPU) |
-|-----------------------------|--------------------|------------|----------------------------------|-------------|----------|-----------------------|
-| Keyword rules (no learning) |               0.14 |       0.29 |                            7,473 |         0   | –        |                   0   |
-| TF-IDF + LogReg             |               0.61 |       0.72 |                           23,755 |        43.1 | 11.01M   |                   1.5 |
-| Transformer (BCE)           |               1.83 |       2.55 |                            1,012 |        13.9 | 3.59M    |                  23.6 |
-| Transformer + RL (ours)     |               1.84 |       2.02 |                            1,144 |        13.9 | 3.59M    |                  31.8 |
+| Model                          |   wnDCG@5 |   F1@5 | Hit@5   | Cat top-1   |
+|--------------------------------|-----------|--------|---------|-------------|
+| Keyword rules (no learning)    |     0.297 |  0.275 | 75.7%   | 13.7%       |
+| TF-IDF + LogReg                |     0.493 |  0.399 | 84.0%   | 48.5%       |
+| Transformer from scratch (BCE) |     0.53  |  0.437 | 86.2%   | 51.4%       |
+| Transformer from scratch + RL  |     0.548 |  0.436 | 85.7%   | 51.2%       |
+| RoBERTa-base fine-tuned (BCE)  |     0.558 |  0.465 | 89.2%   | 55.0%       |
+| RoBERTa-base fine-tuned + RL   |     0.565 |  0.46  | 88.6%   | 54.8%       |
+
+
+### LLM comparison — fixed random subset of 200 test clips
+
+| Model                          |   wnDCG@5 |   nDCG@5 | Hit@5   |   F1@5 |   SetF1 | Cat top-1   |
+|--------------------------------|-----------|----------|---------|--------|---------|-------------|
+| Keyword rules (no learning)    |     0.298 |    0.386 | 79.0%   |  0.274 |   0.306 | 13.0%       |
+| TF-IDF + LogReg                |     0.483 |    0.499 | 83.0%   |  0.373 |   0.351 | 47.5%       |
+| Transformer from scratch (BCE) |     0.545 |    0.578 | 86.0%   |  0.433 |   0.417 | 50.0%       |
+| Transformer from scratch + RL  |     0.556 |    0.572 | 86.0%   |  0.428 |   0.448 | 49.5%       |
+| RoBERTa-base fine-tuned (BCE)  |     0.582 |    0.616 | 91.0%   |  0.461 |   0.474 | 58.5%       |
+| RoBERTa-base fine-tuned + RL   |     0.592 |    0.613 | 91.5%   |  0.459 |   0.48  | 55.0%       |
+| LLM zero-shot                  |     0.514 |    0.519 | 83.5%   |  0.405 |   0.424 | 50.0%       |
+| Transformer+RL → LLM rerank    |     0.546 |    0.563 | 85.5%   |  0.451 |   0.451 | 51.5%       |
 
 
 ### Paired bootstrap (5,000 resamples)
 
-| Comparison                                   |     Δ | 95% CI           | Significant   |
-|----------------------------------------------|-------|------------------|---------------|
-| RL vs BCE (SetF1, thr 0.5, full test)        | 0.025 | [+0.019, +0.030] | yes           |
-| RL vs BCE+tuned threshold (SetF1, full test) | 0.005 | [+0.000, +0.009] | yes           |
-| Hybrid vs RL (F1@5, LLM subset)              | 0.022 | [+0.001, +0.045] | yes           |
-| Hybrid vs LLM zero-shot (F1@5, LLM subset)   | 0.027 | [+0.006, +0.047] | yes           |
+| Comparison                                     |      Δ | 95% CI           | Significant   |
+|------------------------------------------------|--------|------------------|---------------|
+| RoBERTa-BCE vs Transformer-BCE (wnDCG@5)       |  0.022 | [+0.014, +0.029] | yes           |
+| RoBERTa+RL vs RoBERTa-BCE (Set-F1)             |  0.017 | [+0.011, +0.022] | yes           |
+| RoBERTa+RL vs RoBERTa-BCE (wnDCG@5)            |  0.007 | [+0.003, +0.011] | yes           |
+| Transformer+RL vs Transformer-BCE (Set-F1)     |  0.025 | [+0.019, +0.030] | yes           |
+| LLM rerank vs Transformer+RL (wnDCG@5, subset) | -0.01  | [-0.047, +0.027] | no            |
+| LLM rerank vs Transformer+RL (F1@5, subset)    |  0.022 | [+0.001, +0.045] | yes           |
+| RoBERTa+RL vs LLM rerank (wnDCG@5, subset)     |  0.046 | [+0.007, +0.085] | yes           |
 
 
-### LLM cost per video
+### Efficiency — CPU, 1 thread
 
-| Stage                              |   Input tokens |   Output tokens |   Calls |
-|------------------------------------|----------------|-----------------|---------|
-| LLM zero-shot                      |            899 |              16 |     200 |
-| Transformer+RL → LLM rerank (ours) |            263 |              26 |     200 |
+| Model                          |   Latency p50 (ms) |   p95 (ms) |   Throughput (captions/s) |   Size (MB) | Params   |   Train (min, 2 vCPU) |
+|--------------------------------|--------------------|------------|---------------------------|-------------|----------|-----------------------|
+| Keyword rules (no learning)    |               0.19 |       0.39 |                     5,816 |           0 | –        |                   0   |
+| TF-IDF + LogReg                |               0.6  |       0.71 |                    21,425 |          43 | 11.0M    |                   1.5 |
+| Transformer from scratch (BCE) |               2.37 |       2.8  |                     1,121 |          14 | 3.6M     |                  23.6 |
+| Transformer from scratch + RL  |               2.01 |       2.53 |                     1,176 |          14 | 3.6M     |                  31.8 |
+| RoBERTa-base fine-tuned (BCE)  |             112.87 |     132.04 |                        32 |         474 | 124.3M   |                  78.5 |
+| RoBERTa-base fine-tuned + RL   |             112.87 |     132.04 |                        32 |         474 | 124.3M   |                  89.5 |
+
+
+### LLM cost per clip (tokens estimated at ~4 chars/token)
+
+| Stage                       |   Input tokens |   Output tokens |   Calls |
+|-----------------------------|----------------|-----------------|---------|
+| LLM zero-shot               |            899 |              16 |     200 |
+| Transformer+RL → LLM rerank |            263 |              26 |     200 |

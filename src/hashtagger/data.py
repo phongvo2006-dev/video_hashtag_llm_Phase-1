@@ -109,3 +109,19 @@ def train_examples(videos: list[Video]) -> tuple[list[str], list[list[str]]]:
 def eval_examples(videos: list[Video], split: str) -> tuple[list[str], list[list[str]], list[Video]]:
     vs = [v for v in videos if v.split == split]
     return [v.eval_caption for v in vs], [v.tags for v in vs], vs
+
+
+def other_caption_gains(videos: list[Video], gerunds: dict[str, str], category_tags: list[str]) -> list[dict]:
+    """Graded relevance per gold tag = share of the clip's OTHER captions (input caption excluded)
+    that mention it. The category tag gets gain 1.0."""
+    text.ensure_nltk()
+    out = []
+    for v in videos:
+        others = [c for c in v.captions if c != v.eval_caption] or v.captions
+        cnt: Counter = Counter()
+        for s in text.tag_sents([text.tokenize(c) for c in others]):
+            cnt.update(text.candidate_terms(s, gerunds))
+        g = {t: cnt.get(t, 0) / len(others) for t in v.tags if t not in category_tags}
+        g[category_tags[v.category]] = 1.0
+        out.append(g)
+    return out

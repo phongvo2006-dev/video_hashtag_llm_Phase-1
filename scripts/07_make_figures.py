@@ -13,100 +13,98 @@ from hashtagger.utils import load_json, rpath  # noqa: E402
 M = load_json(rpath("results/metrics.json"))
 FIG = rpath("results/figures"); FIG.mkdir(parents=True, exist_ok=True)
 K = M["k"]
-BLUE, ORANGE, AQUA, GRAY = "#2a78d6", "#eb6834", "#1baf7a", "#a3a29c"
+W = f"wnDCG@{K}"
+BLUE, ORANGE, AQUA, GRAY, LIGHT = "#2a78d6", "#eb6834", "#1baf7a", "#a3a29c", "#cfcec8"
 INK, INK2 = "#0b0b0b", "#52514e"
-NAMES = {"keyword": "Keyword rules", "tfidf_lr": "TF-IDF + LogReg", "transformer_bce": "Transformer (BCE)",
-         "transformer_rl": "Transformer + RL", "llm_zero_shot": "LLM zero-shot",
+NAMES = {"keyword": "Keyword rules", "tfidf_lr": "TF-IDF + LogReg", "transformer_bce": "Transformer (scratch)",
+         "transformer_rl": "Transformer (scratch) + RL", "roberta_bce": "RoBERTa fine-tuned",
+         "roberta_rl": "RoBERTa fine-tuned + RL", "llm_zero_shot": "LLM zero-shot",
          "llm_hybrid": "Transformer+RL → LLM"}
 plt.rcParams.update({"font.size": 10, "axes.edgecolor": "#d6d5d0", "axes.labelcolor": INK2,
                      "xtick.color": INK2, "ytick.color": INK2, "axes.spines.top": False,
                      "axes.spines.right": False, "figure.dpi": 150, "savefig.bbox": "tight"})
 
 
-def hbar(ax, labels, values, colors, fmt="{:.3f}"):
-    y = np.arange(len(labels))[::-1]
-    ax.barh(y, values, color=colors, height=0.6)
+def color(n):
+    return {"roberta_rl": BLUE, "llm_hybrid": ORANGE}.get(n, GRAY)
+
+
+def hbar(ax, names, values, fmt="{:.3f}"):
+    y = np.arange(len(names))[::-1]
+    ax.barh(y, values, color=[color(n) for n in names], height=0.6)
     for yi, v in zip(y, values):
         ax.text(v + max(values) * 0.01, yi, fmt.format(v), va="center", color=INK, fontsize=9)
-    ax.set_yticks(y, labels)
+    ax.set_yticks(y, [NAMES[n] for n in names])
     ax.grid(axis="x", color="#ecebe7", lw=0.8); ax.set_axisbelow(True)
-    ax.set_xlim(0, max(values) * 1.15)
+    ax.set_xlim(0, max(values) * 1.16)
 
 
-# 1. quality on full test set ---------------------------------------------------------
-full = M["test_full"]
-fig, axes = plt.subplots(1, 2, figsize=(10, 3.2), sharey=True)
-names = list(full)
-hbar(axes[0], [NAMES[n] for n in names], [full[n][f"F1@{K}"] for n in names],
-     [BLUE if n == "transformer_rl" else GRAY for n in names])
-axes[0].set_title(f"F1@{K} (ranked top-{K})", color=INK, loc="left")
-hbar(axes[1], [NAMES[n] for n in names], [full[n]["SetF1@0.5"] for n in names],
-     [BLUE if n == "transformer_rl" else GRAY for n in names])
-axes[1].set_title("Set-F1 (model picks how many tags)", color=INK, loc="left")
-fig.suptitle(f"Test set: {M['n_test']:,} MSR-VTT videos, one caption each", color=INK, x=0.01, ha="left", y=1.04)
+# 1. full test -----------------------------------------------------------------------------
+full = M["test_full"]; names = list(full)
+fig, axes = plt.subplots(1, 3, figsize=(13, 3.6), sharey=True)
+hbar(axes[0], names, [full[n][W] for n in names]); axes[0].set_title(f"{W} (primary)", color=INK, loc="left")
+hbar(axes[1], names, [full[n]["SetF1@0.5"] for n in names]); axes[1].set_title("Set-F1", color=INK, loc="left")
+hbar(axes[2], names, [full[n]["CatTop1"] for n in names], "{:.1%}")
+axes[2].set_title("Category top-1 accuracy", color=INK, loc="left")
+fig.suptitle(f"Test set: {M['n_test']:,} MSR-VTT clips, one caption each", color=INK, x=0.01, ha="left", y=1.04)
 fig.savefig(FIG / "quality_full_test.png"); plt.close(fig)
 
-# 2. LLM subset ---------------------------------------------------------------------------
-sub = M["test_llm_subset"]
-fig, axes = plt.subplots(1, 2, figsize=(10, 3.6), sharey=True)
-names = list(sub)
-col = [ORANGE if n == "llm_hybrid" else (BLUE if n == "transformer_rl" else GRAY) for n in names]
-hbar(axes[0], [NAMES[n] for n in names], [sub[n][f"F1@{K}"] for n in names], col)
-axes[0].set_title(f"F1@{K}", color=INK, loc="left")
-hbar(axes[1], [NAMES[n] for n in names], [sub[n]["CatAcc"] for n in names], col)
-axes[1].set_title("Video-category accuracy", color=INK, loc="left")
-fig.suptitle(f"LLM comparison on a fixed random subset of {M['n_subset']} test videos", color=INK,
+# 2. LLM subset ----------------------------------------------------------------------------
+sub = M["test_llm_subset"]; names = list(sub)
+fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.2), sharey=True)
+hbar(axes[0], names, [sub[n][W] for n in names]); axes[0].set_title(f"{W} (primary)", color=INK, loc="left")
+hbar(axes[1], names, [sub[n][f"F1@{K}"] for n in names]); axes[1].set_title(f"F1@{K}", color=INK, loc="left")
+fig.suptitle(f"LLM comparison on a fixed random subset of {M['n_subset']} test clips", color=INK,
              x=0.01, ha="left", y=1.04)
 fig.savefig(FIG / "llm_subset.png"); plt.close(fig)
 
-# 3. efficiency vs quality ---------------------------------------------------------------
+# 3. quality vs latency ------------------------------------------------------------------
 eff = M["efficiency"]
-fig, ax = plt.subplots(figsize=(6.4, 3.8))
-for n in ["keyword", "tfidf_lr", "transformer_bce", "transformer_rl"]:
-    x, y = eff[n]["latency_ms_p50"], full[n][f"F1@{K}"]
-    ax.scatter(x, y, s=70, color=BLUE if n == "transformer_rl" else GRAY, zorder=3,
-               edgecolor="white", linewidth=2)
-    if n == "transformer_bce":
-        continue                      # sits on top of the RL point; labelled together below
-    label = "Transformer, BCE and +RL" if n == "transformer_rl" else NAMES[n]
-    ax.annotate(f"{label} · {eff[n]['size_mb']:.0f} MB", (x, y), xytext=(-10, -16) if n == "transformer_rl"
-                else (8, -4), textcoords="offset points", fontsize=8.5, color=INK,
-                ha="right" if n == "transformer_rl" else "left")
+fig, ax = plt.subplots(figsize=(7, 4))
+for n in ["keyword", "tfidf_lr", "transformer_rl", "roberta_rl"]:
+    if n not in eff:
+        continue
+    x, y = eff[n]["latency_ms_p50"], full[n][W]
+    ax.scatter(x, y, s=70, color=BLUE if n == "roberta_rl" else GRAY, zorder=3, edgecolor="white", linewidth=2)
+    off, ha, va = {"transformer_rl": ((-8, 8), "right", "bottom"),
+                   "roberta_rl": ((-10, -10), "right", "top")}.get(n, ((8, -4), "left", "top"))
+    ax.annotate(f"{NAMES[n]}\n{eff[n]['size_mb']:.0f} MB · {eff[n]['params'] / 1e6:.1f}M params"
+                if eff[n]["params"] else NAMES[n], (x, y), xytext=off, textcoords="offset points",
+                fontsize=8.5, color=INK, ha=ha, va=va)
 ax.set_xscale("log")
-ax.set_xticks([0.1, 0.2, 0.5, 1, 2, 5], ["0.1", "0.2", "0.5", "1", "2", "5"])
-ax.minorticks_off()
-ax.set_xlim(0.1, 4)
-ax.set_xlabel("Latency per caption, ms (CPU, 1 thread, log scale)")
-ax.set_ylabel(f"F1@{K}")
+ax.set_xticks([0.1, 0.3, 1, 3, 10, 30, 100], ["0.1", "0.3", "1", "3", "10", "30", "100"]); ax.minorticks_off()
+ax.set_xlabel("Latency per caption, ms (CPU, 1 thread, log scale)"); ax.set_ylabel(W); ax.set_ylim(0.28, 0.6)
 ax.grid(color="#ecebe7", lw=0.8); ax.set_axisbelow(True)
-ax.set_title("Quality vs. latency (higher-left is better)", color=INK, loc="left")
+ax.set_title("Quality vs. latency", color=INK, loc="left")
 fig.savefig(FIG / "efficiency.png"); plt.close(fig)
 
-# 4. RL training curve -------------------------------------------------------------------
+# 4. RL curves -----------------------------------------------------------------------------
+fig, axes = plt.subplots(1, 2, figsize=(11, 3.4))
 h = load_json(rpath("results/train_log_rl.json"))["history"]
-fig, ax = plt.subplots(figsize=(6.4, 3.4))
-ax.plot(h["step"], h["val_setf1"], color=BLUE, lw=2, marker="o", ms=4)
-ax.annotate(f"{h['val_setf1'][0]:.3f}", (h["step"][0], h["val_setf1"][0]), xytext=(6, -12),
-            textcoords="offset points", color=INK, fontsize=9)
-ax.annotate(f"{h['val_setf1'][-1]:.3f}", (h["step"][-1], h["val_setf1"][-1]), xytext=(-10, 8),
-            textcoords="offset points", color=INK, fontsize=9)
-ax.set_xlabel("RL update step"); ax.set_ylabel("Validation Set-F1 (greedy, p ≥ 0.5)")
-ax.grid(color="#ecebe7", lw=0.8); ax.set_axisbelow(True)
-ax.set_title("RL fine-tuning on a set-F1 reward (REINFORCE + RLOO)", color=INK, loc="left")
+axes[0].plot(h["step"], h["val_setf1"], color=GRAY, lw=2, marker="o", ms=3)
+axes[0].set_title("Transformer (scratch): val Set-F1 during RL", color=INK, loc="left")
+lg = rpath("results/train_log_roberta.json")
+if lg.exists():
+    r = load_json(lg)["rl"]
+    axes[1].plot([e["step"] for e in r], [e["SetF1"] for e in r], color=BLUE, lw=2, marker="o", ms=3)
+    axes[1].set_title("RoBERTa: val Set-F1 during RL", color=INK, loc="left")
+for ax in axes:
+    ax.set_xlabel("RL update step"); ax.grid(color="#ecebe7", lw=0.8); ax.set_axisbelow(True)
+axes[0].set_ylabel("Validation Set-F1 (p ≥ 0.5)")
 fig.savefig(FIG / "rl_curve.png"); plt.close(fig)
 
-# 5. per-category F1 ---------------------------------------------------------------------
-pc = M["per_category_f1"]
-cats = sorted(pc["transformer_rl"], key=lambda c: pc["transformer_rl"][c])
-y = np.arange(len(cats))
-fig, ax = plt.subplots(figsize=(7, 6.4))
-w = 0.27
-for i, (n, c) in enumerate([("keyword", GRAY), ("tfidf_lr", AQUA), ("transformer_rl", BLUE)]):
-    ax.barh(y + (i - 1) * w, [pc[n][k] for k in cats], height=w - 0.03, color=c, label=NAMES[n])
-ax.set_yticks(y, ["#" + c for c in cats])
-ax.set_xlabel(f"F1@{K}")
+# 5. per category -------------------------------------------------------------------------
+pc = M["per_category_wndcg"]
+series = [(n, c) for n, c in [("tfidf_lr", LIGHT), ("transformer_rl", AQUA), ("roberta_rl", BLUE)] if n in pc]
+best = series[-1][0]
+cats = sorted(pc[best], key=lambda c: pc[best][c])
+y = np.arange(len(cats)); w = 0.8 / len(series)
+fig, ax = plt.subplots(figsize=(7, 6.6))
+for i, (n, c) in enumerate(series):
+    ax.barh(y + (i - (len(series) - 1) / 2) * w, [pc[n][k] for k in cats], height=w - 0.03, color=c, label=NAMES[n])
+ax.set_yticks(y, ["#" + c for c in cats]); ax.set_xlabel(W)
 ax.grid(axis="x", color="#ecebe7", lw=0.8); ax.set_axisbelow(True)
-ax.legend(loc="lower right", frameon=False)
-ax.set_title("F1 by kind of video (MSR-VTT category)", color=INK, loc="left")
+h_, l_ = ax.get_legend_handles_labels(); ax.legend(h_[::-1], l_[::-1], loc="lower right", frameon=False)
+ax.set_title("Quality by kind of video (MSR-VTT category)", color=INK, loc="left")
 fig.savefig(FIG / "per_category.png"); plt.close(fig)
 print("figures ->", FIG)

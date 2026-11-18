@@ -1,7 +1,7 @@
 """Inference API used by the demo app and CLI.
 
     from hashtagger.predict import Hashtagger
-    h = Hashtagger.load()                       # RL-fine-tuned transformer
+    h = Hashtagger.load()                       # RoBERTa+RL if trained locally, else the 14 MB transformer
     h.predict("a chef slices onions in a kitchen")
     -> [("cooking", 0.93), ("food", 0.88), ("kitchen", 0.71), ...]
 """
@@ -21,12 +21,32 @@ class Hashtagger:
         self.category_tags, self.threshold, self.max_len = category_tags, threshold, max_len
 
     @classmethod
-    def load(cls, ckpt: str | Path = ROOT / "checkpoints" / "transformer_rl.pt") -> "Hashtagger":
-        model, tok, extra = T.load(str(ckpt))
-        return cls(model, tok, extra["vocab"], extra["category_tags"], extra.get("threshold", 0.5),
-                   model.cfg["max_len"])
+    def load(cls, kind: str = "auto") -> "Hashtagger":
+        """kind: 'roberta' (fine-tuned RoBERTa-base + RL, best; ~500 MB, run `make roberta` first),
+        'transformer' (small model shipped in the repo, 14 MB) or 'auto' (roberta if available)."""
+        ck = ROOT / "checkpoints"
+        if kind == "roberta" or (kind == "auto" and (ck / "roberta_rl.pt").exists()):
+            import torch
+            from .models.pretrained import RobertaTagger
+            from .utils import load_config
+            extra = T.load(str(ck / "transformer_rl.pt"))[2]           # label space
+            rc = load_config()["roberta"]
+            model = RobertaTagger(len(extra["vocab"]), rc["source"])
+            model.load_state_dict(torch.load(ck / "roberta_rl.pt"))
+            model.eval()
+            h = cls(model, None, extra["vocab"], extra["category_tags"], 0.5, rc["max_len"])
+            h.kind = "roberta"
+            return h
+        model, tok, extra = T.load(str(ck / "transformer_rl.pt"))
+        h = cls(model, tok, extra["vocab"], extra["category_tags"], extra.get("threshold", 0.5),
+                model.cfg["max_len"])
+        h.kind = "transformer"
+        return h
 
     def proba(self, captions: list[str]) -> np.ndarray:
+        if self.tok is None:                                            # RoBERTa
+            from .models.pretrained import predict_proba
+            return predict_proba(self.model, self.model.backbone.encode_text(captions, self.max_len))
         return T.predict_proba(self.model, self.tok.encode(captions, self.max_len))
 
     def predict(self, caption: str, max_tags: int = 8, min_tags: int = 3) -> list[tuple[str, float]]:

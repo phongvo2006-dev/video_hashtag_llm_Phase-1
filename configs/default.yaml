@@ -72,3 +72,19 @@ llm:
   model: claude-opus-5-5
   candidates: 12              # hybrid: candidates passed from the transformer to the LLM
   final_tags: 5
+
+roberta:
+  # Fine-tuned pretrained encoder (industry-standard text tagger)
+  source: spacy              # spacy (RoBERTa-base weights from en_core_web_trf, GitHub) | hf (roberta-base)
+  max_len: 40
+  epochs: 2
+  captions_per_video: 4      # each epoch re-samples 4 of the 20 captions per training clip
+  batch_size: 32
+  lr_encoder: 0.00003
+  lr_head: 0.001
+  warmup: 0.06
+  dropout: 0.1
+  rl_captions_per_video: 1   # RL stage: 1 pass over 1 fresh caption per clip
+  rl_lr: 0.00001
+  rl_n_samples: 4
+  rl_bce_anchor: 0.5

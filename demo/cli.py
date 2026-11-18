@@ -13,13 +13,15 @@ from hashtagger.predict import Hashtagger  # noqa: E402
 ap = argparse.ArgumentParser()
 ap.add_argument("caption", nargs="+")
 ap.add_argument("--llm", choices=["anthropic", "openai", "ollama"], help="add LLM re-ranking (needs key / server)")
-ap.add_argument("--model", default="claude-opus-5-5")
+ap.add_argument("--model", default="claude-opus-5-5", help="LLM model name")
+ap.add_argument("--tagger", choices=["auto", "roberta", "transformer"], default="auto")
 args = ap.parse_args()
 caption = " ".join(args.caption)
 
-h = Hashtagger.load()
+h = Hashtagger.load(args.tagger)
 cat, pc = h.category(caption)
-print(f'\nCaption : "{caption}"')
+print(f'\nTagger  : {h.kind}')
+print(f'Caption : "{caption}"')
 print(f"Category: #{cat}  ({pc:.2f})")
 print("Tags    : " + "  ".join(f"#{t} ({p:.2f})" for t, p in h.predict(caption)))
 
