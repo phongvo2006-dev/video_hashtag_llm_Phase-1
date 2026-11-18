@@ -1,0 +1,222 @@
+{
+  "videos": {
+    "train": 6513,
+    "val": 497,
+    "test": 2990
+  },
+  "captions_total": 200000,
+  "train_examples": 130260,
+  "vocab_size": 367,
+  "category_tags": 20,
+  "tags_per_video_mean": 4.0561,
+  "tags_per_video_median": 4.0,
+  "top_tags": [
+    [
+      "game",
+      780
+    ],
+    [
+      "sports",
+      713
+    ],
+    [
+      "movies",
+      676
+    ],
+    [
+      "singing",
+      561
+    ],
+    [
+      "autos",
+      525
+    ],
+    [
+      "car",
+      498
+    ],
+    [
+      "music",
+      482
+    ],
+    [
+      "cartoon",
+      440
+    ],
+    [
+      "food",
+      430
+    ],
+    [
+      "character",
+      427
+    ],
+    [
+      "animals",
+      415
+    ],
+    [
+      "song",
+      400
+    ],
+    [
+      "stage",
+      387
+    ],
+    [
+      "howto",
+      374
+    ],
+    [
+      "movie",
+      361
+    ],
+    [
+      "family",
+      360
+    ],
+    [
+      "news",
+      331
+    ],
+    [
+      "beauty",
+      324
+    ],
+    [
+      "gaming",
+      308
+    ],
+    [
+      "player",
+      308
+    ],
+    [
+      "dancing",
+      297
+    ],
+    [
+      "child",
+      264
+    ],
+    [
+      "driving",
+      246
+    ],
+    [
+      "kitchen",
+      233
+    ],
+    [
+      "water",
+      226
+    ],
+    [
+      "scitech",
+      225
+    ],
+    [
+      "cooking",
+      212
+    ],
+    [
+      "animation",
+      211
+    ],
+    [
+      "explaining",
+      210
+    ],
+    [
+      "tvshow",
+      205
+    ]
+  ],
+  "examples": [
+    {
+      "video_id": "video7010",
+      "category": "howto",
+      "eval_caption": "video showing people how to perform an action on the computer",
+      "gold": [
+        "computer",
+        "explaining",
+        "howto",
+        "song"
+      ]
+    },
+    {
+      "video_id": "video7011",
+      "category": "autos",
+      "eval_caption": "animated buckets of paint are posing",
+      "gold": [
+        "autos",
+        "paint"
+      ]
+    },
+    {
+      "video_id": "video7012",
+      "category": "education",
+      "eval_caption": "a man sitting in black chair discusses mental health and psychology",
+      "gold": [
+        "discussing",
+        "education",
+        "sits"
+      ]
+    },
+    {
+      "video_id": "video7013",
+      "category": "education",
+      "eval_caption": "a man is teaching mathematical concepts",
+      "gold": [
+        "board",
+        "education",
+        "teacher",
+        "teaching",
+        "writing"
+      ]
+    },
+    {
+      "video_id": "video7014",
+      "category": "family",
+      "eval_caption": "little girl performing on a show",
+      "gold": [
+        "family",
+        "interviewing",
+        "judge",
+        "stage",
+        "voice"
+      ]
+    },
+    {
+      "video_id": "video7015",
+      "category": "movies",
+      "eval_caption": "a japanese man dances to entertain a japanese woman",
+      "gold": [
+        "dancing",
+        "laughing",
+        "movies",
+        "singing"
+      ]
+    },
+    {
+      "video_id": "video7016",
+      "category": "music",
+      "eval_caption": "girls playing in paint",
+      "gold": [
+        "egg",
+        "music",
+        "paint"
+      ]
+    },
+    {
+      "video_id": "video7017",
+      "category": "gaming",
+      "eval_caption": "minecraft video game play",
+      "gold": [
+        "game",
+        "gaming",
+        "minecraft"
+      ]
+    }
+  ]
+}

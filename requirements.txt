@@ -1,0 +1,15 @@
+# core
+numpy>=1.26
+pandas>=2.0
+scikit-learn>=1.4
+torch>=2.2          # CPU build is enough:  pip install torch --index-url https://download.pytorch.org/whl/cpu
+nltk>=3.8
+pyyaml>=6.0
+tabulate>=0.9
+matplotlib>=3.8
+# LLM providers (install the one you use)
+anthropic>=0.40
+openai>=1.40        # also covers Ollama / vLLM via an OpenAI-compatible endpoint
+# demo + tests
+gradio>=4.0
+pytest>=8.0

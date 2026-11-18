@@ -1,0 +1,74 @@
+# ---------------------------------------------------------------
+# Video Hashtag Generation — default experiment config
+# ---------------------------------------------------------------
+seed: 42
+
+data:
+  raw_json: data/raw/msrvtt_data/MSRVTT_data.json
+  processed_dir: data/processed
+  # Standard MSR-VTT split (Xu et al., 2016): video0-6512 / 6513-7009 / 7010-9999
+  split_boundaries: {train_end: 6513, val_end: 7010}
+
+labels:
+  min_caption_votes: 3        # a term becomes a gold tag if >= 3 of the 20 annotators mention it
+  min_video_freq: 15          # keep tags that are gold for >= 15 training videos
+  max_vocab: 400              # cap on topic-hashtag vocabulary
+  # MSR-VTT category id -> hashtag (category names from the official category.txt)
+  category_tags:
+    0: music
+    1: people
+    2: gaming
+    3: sports
+    4: news
+    5: education
+    6: tvshow
+    7: movies
+    8: animation
+    9: autos
+    10: howto
+    11: travel
+    12: scitech
+    13: animals
+    14: family
+    15: documentary
+    16: food
+    17: cooking
+    18: beauty
+    19: ads
+
+eval:
+  k: 5                        # P@k / R@k / F1@k
+  llm_subset_size: 200        # test videos scored by the (slower, paid) LLM stages
+
+tfidf:
+  max_features: 30000
+  ngram_range: [1, 2]
+  epochs: 5
+  lr: 0.5               # Adagrad
+  batch_size: 512
+
+transformer:
+  max_len: 32
+  d_model: 192
+  n_heads: 4
+  n_layers: 2
+  dropout: 0.1
+  epochs: 6
+  lr: 0.0007
+  batch_size: 256
+  min_token_freq: 2
+
+rl:
+  # Self-critical policy-gradient fine-tuning (SCST, Rennie et al. 2017)
+  epochs: 2
+  lr: 0.00005
+  batch_size: 256
+  n_samples: 4                # sampled tag-sets per caption
+  entropy_coef: 0.0
+  bce_anchor: 0.5             # keep a little supervised loss so the policy does not drift
+
+llm:
+  provider: cache             # cache | anthropic | openai | ollama
+  model: claude-opus-5-5
+  candidates: 12              # hybrid: candidates passed from the transformer to the LLM
+  final_tags: 5
