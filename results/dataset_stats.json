@@ -6,9 +6,9 @@
   },
   "captions_total": 200000,
   "train_examples": 130260,
-  "vocab_size": 367,
+  "vocab_size": 387,
   "category_tags": 20,
-  "tags_per_video_mean": 4.0561,
+  "tags_per_video_mean": 4.1485,
   "tags_per_video_median": 4.0,
   "top_tags": [
     [
@@ -24,12 +24,12 @@
       676
     ],
     [
-      "singing",
-      561
-    ],
-    [
       "autos",
       525
+    ],
+    [
+      "singing",
+      520
     ],
     [
       "car",
@@ -57,11 +57,11 @@
     ],
     [
       "song",
-      400
+      406
     ],
     [
       "stage",
-      387
+      388
     ],
     [
       "howto",
@@ -93,19 +93,19 @@
     ],
     [
       "dancing",
-      297
-    ],
-    [
-      "child",
-      264
-    ],
-    [
-      "driving",
-      246
+      283
     ],
     [
       "kitchen",
-      233
+      261
+    ],
+    [
+      "animated",
+      259
+    ],
+    [
+      "sing",
+      252
     ],
     [
       "water",
@@ -116,16 +116,16 @@
       225
     ],
     [
+      "driving",
+      215
+    ],
+    [
       "cooking",
       212
     ],
     [
       "animation",
       211
-    ],
-    [
-      "explaining",
-      210
     ],
     [
       "tvshow",
@@ -141,7 +141,8 @@
         "computer",
         "explaining",
         "howto",
-        "song"
+        "song",
+        "tutorial"
       ]
     },
     {
@@ -149,6 +150,7 @@
       "category": "autos",
       "eval_caption": "animated buckets of paint are posing",
       "gold": [
+        "animated",
         "autos",
         "paint"
       ]
@@ -158,9 +160,8 @@
       "category": "education",
       "eval_caption": "a man sitting in black chair discusses mental health and psychology",
       "gold": [
-        "discussing",
-        "education",
-        "sits"
+        "discuss",
+        "education"
       ]
     },
     {
@@ -171,8 +172,7 @@
         "board",
         "education",
         "teacher",
-        "teaching",
-        "writing"
+        "teaching"
       ]
     },
     {
@@ -181,7 +181,7 @@
       "eval_caption": "little girl performing on a show",
       "gold": [
         "family",
-        "interviewing",
+        "interviewed",
         "judge",
         "stage",
         "voice"

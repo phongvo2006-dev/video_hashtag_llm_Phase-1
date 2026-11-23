@@ -33,7 +33,7 @@ CATS = set(labels.category_tags)
 
 gpath = rpath(cfg["data"]["processed_dir"]) / "test_gains.json"
 if not gpath.exists():
-    json.dump(data.other_caption_gains(vte, meta["gerunds"], labels.category_tags), open(gpath, "w"))
+    json.dump(data.other_caption_gains(vte, meta["term_map"], labels.category_tags), open(gpath, "w"))
 gains = json.load(open(gpath))
 
 # 'clean' test: drop clips whose input caption appears verbatim among training captions
@@ -126,6 +126,10 @@ if "roberta_bce" in MODELS:
     add("RoBERTa-BCE vs Transformer-BCE (wnDCG@5)", per_ex("wnDCG", top_cache["roberta_bce"], ALL),
         per_ex("wnDCG", top_cache["transformer_bce"], ALL))
 if "roberta_rl" in MODELS:
+    add("RoBERTa+RL vs Transformer+RL (wnDCG@5)", per_ex("wnDCG", top_cache["roberta_rl"], ALL),
+        per_ex("wnDCG", top_cache["transformer_rl"], ALL))
+    add("RoBERTa+RL vs Transformer+RL (Set-F1)", per_ex("f1", set_cache["roberta_rl"], ALL),
+        per_ex("f1", set_cache["transformer_rl"], ALL))
     add("RoBERTa+RL vs RoBERTa-BCE (Set-F1)", per_ex("f1", set_cache["roberta_rl"], ALL),
         per_ex("f1", set_cache["roberta_bce"], ALL))
     add("RoBERTa+RL vs RoBERTa-BCE (wnDCG@5)", per_ex("wnDCG", top_cache["roberta_rl"], ALL),
@@ -173,7 +177,7 @@ from hashtagger.models.keyword import KeywordTagger  # noqa: E402
 from hashtagger.models.tfidf_linear import TfidfLinear  # noqa: E402
 from hashtagger.models import transformer as T  # noqa: E402
 
-kw = KeywordTagger(labels, meta["gerunds"], np.load(ck / "keyword_prior.npy"))
+kw = KeywordTagger(labels, meta["term_map"], np.load(ck / "keyword_prior.npy"))
 eff["keyword"] = {**bench(kw.scores), "size_mb": 0.0, "params": 0, "train_sec": 0.0}
 tf = TfidfLinear.load(str(ck / "tfidf_lr.pkl"))
 lb = load_json(rpath("results/train_log_baselines.json"))["tfidf_lr"]

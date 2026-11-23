@@ -3,7 +3,7 @@
   "model": "claude-opus-5-5",
   "calls": 200,
   "cache_hits": 200,
-  "mean_in_tokens": 898.665,
-  "mean_out_tokens": 16.415,
+  "mean_in_tokens": 920.89,
+  "mean_out_tokens": 16.23,
   "mean_latency_sec": null
 }

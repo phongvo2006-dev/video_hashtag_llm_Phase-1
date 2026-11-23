@@ -2,68 +2,70 @@
 
 | Model                          |   wnDCG@5 |   nDCG@5 |   wRecall@5 | Hit@5   |   F1@5 |   SetF1 (0.5) |   SetF1 (val thr) | Cat top-1   | Cat top-2   |   Cat macro-F1 |
 |--------------------------------|-----------|----------|-------------|---------|--------|---------------|-------------------|-------------|-------------|----------------|
-| Keyword rules (no learning)    |     0.302 |    0.39  |       0.327 | 76.2%   |  0.274 |         0.321 |             0.321 | 14.1%       | 24.2%       |          0.067 |
-| TF-IDF + LogReg                |     0.501 |    0.531 |       0.55  | 84.2%   |  0.406 |         0.383 |             0.402 | 49.1%       | 62.1%       |          0.412 |
-| Transformer from scratch (BCE) |     0.537 |    0.579 |       0.584 | 86.3%   |  0.441 |         0.441 |             0.461 | 51.7%       | 65.5%       |          0.424 |
-| Transformer from scratch + RL  |     0.551 |    0.573 |       0.591 | 85.7%   |  0.439 |         0.466 |             0.465 | 51.5%       | 65.3%       |          0.416 |
-| RoBERTa-base fine-tuned (BCE)  |     0.559 |    0.608 |       0.612 | 88.8%   |  0.465 |         0.472 |             0.489 | 54.7%       | 69.2%       |          0.458 |
-| RoBERTa-base fine-tuned + RL   |     0.565 |    0.604 |       0.611 | 88.2%   |  0.46  |         0.489 |             0.491 | 54.6%       | 69.4%       |          0.444 |
+| Keyword rules (no learning)    |     0.304 |    0.392 |       0.334 | 76.2%   |  0.275 |         0.315 |             0.315 | 14.0%       | 24.0%       |          0.065 |
+| TF-IDF + LogReg                |     0.499 |    0.53  |       0.546 | 83.8%   |  0.404 |         0.38  |             0.398 | 49.1%       | 62.1%       |          0.412 |
+| Transformer from scratch (BCE) |     0.536 |    0.581 |       0.582 | 86.0%   |  0.441 |         0.444 |             0.462 | 52.5%       | 66.1%       |          0.434 |
+| Transformer from scratch + RL  |     0.552 |    0.577 |       0.589 | 85.8%   |  0.438 |         0.468 |             0.468 | 52.0%       | 65.9%       |          0.419 |
+| RoBERTa-base fine-tuned (BCE)  |     0.552 |    0.605 |       0.604 | 88.3%   |  0.459 |         0.471 |             0.486 | 54.7%       | 69.3%       |          0.455 |
+| RoBERTa-base fine-tuned + RL   |     0.555 |    0.597 |       0.599 | 87.2%   |  0.453 |         0.485 |             0.49  | 53.9%       | 68.3%       |          0.433 |
 
 
 ### Clean test — 2,642 clips whose input caption never appears verbatim in training
 
 | Model                          |   wnDCG@5 |   F1@5 | Hit@5   | Cat top-1   |
 |--------------------------------|-----------|--------|---------|-------------|
-| Keyword rules (no learning)    |     0.297 |  0.275 | 75.7%   | 13.7%       |
-| TF-IDF + LogReg                |     0.493 |  0.399 | 84.0%   | 48.5%       |
-| Transformer from scratch (BCE) |     0.53  |  0.437 | 86.2%   | 51.4%       |
-| Transformer from scratch + RL  |     0.548 |  0.436 | 85.7%   | 51.2%       |
-| RoBERTa-base fine-tuned (BCE)  |     0.558 |  0.465 | 89.2%   | 55.0%       |
-| RoBERTa-base fine-tuned + RL   |     0.565 |  0.46  | 88.6%   | 54.8%       |
+| Keyword rules (no learning)    |     0.3   |  0.277 | 76.0%   | 13.7%       |
+| TF-IDF + LogReg                |     0.492 |  0.397 | 83.6%   | 48.5%       |
+| Transformer from scratch (BCE) |     0.531 |  0.438 | 86.0%   | 52.3%       |
+| Transformer from scratch + RL  |     0.549 |  0.435 | 85.8%   | 51.8%       |
+| RoBERTa-base fine-tuned (BCE)  |     0.552 |  0.459 | 88.8%   | 55.0%       |
+| RoBERTa-base fine-tuned + RL   |     0.556 |  0.454 | 87.6%   | 54.0%       |
 
 
 ### LLM comparison — fixed random subset of 200 test clips
 
 | Model                          |   wnDCG@5 |   nDCG@5 | Hit@5   |   F1@5 |   SetF1 | Cat top-1   |
 |--------------------------------|-----------|----------|---------|--------|---------|-------------|
-| Keyword rules (no learning)    |     0.298 |    0.386 | 79.0%   |  0.274 |   0.306 | 13.0%       |
-| TF-IDF + LogReg                |     0.483 |    0.499 | 83.0%   |  0.373 |   0.351 | 47.5%       |
-| Transformer from scratch (BCE) |     0.545 |    0.578 | 86.0%   |  0.433 |   0.417 | 50.0%       |
-| Transformer from scratch + RL  |     0.556 |    0.572 | 86.0%   |  0.428 |   0.448 | 49.5%       |
-| RoBERTa-base fine-tuned (BCE)  |     0.582 |    0.616 | 91.0%   |  0.461 |   0.474 | 58.5%       |
-| RoBERTa-base fine-tuned + RL   |     0.592 |    0.613 | 91.5%   |  0.459 |   0.48  | 55.0%       |
-| LLM zero-shot                  |     0.514 |    0.519 | 83.5%   |  0.405 |   0.424 | 50.0%       |
-| Transformer+RL → LLM rerank    |     0.546 |    0.563 | 85.5%   |  0.451 |   0.451 | 51.5%       |
+| Keyword rules (no learning)    |     0.3   |    0.386 | 77.0%   |  0.277 |   0.302 | 13.0%       |
+| TF-IDF + LogReg                |     0.484 |    0.499 | 82.0%   |  0.375 |   0.345 | 47.5%       |
+| Transformer from scratch (BCE) |     0.546 |    0.577 | 86.5%   |  0.431 |   0.433 | 52.5%       |
+| Transformer from scratch + RL  |     0.563 |    0.576 | 85.5%   |  0.428 |   0.453 | 52.5%       |
+| RoBERTa-base fine-tuned (BCE)  |     0.57  |    0.606 | 89.5%   |  0.449 |   0.467 | 56.5%       |
+| RoBERTa-base fine-tuned + RL   |     0.571 |    0.594 | 88.5%   |  0.439 |   0.466 | 55.5%       |
+| LLM zero-shot                  |     0.511 |    0.519 | 82.0%   |  0.401 |   0.411 | 50.0%       |
+| Transformer+RL → LLM rerank    |     0.548 |    0.56  | 84.5%   |  0.441 |   0.441 | 52.5%       |
 
 
 ### Paired bootstrap (5,000 resamples)
 
 | Comparison                                     |      Δ | 95% CI           | Significant   |
 |------------------------------------------------|--------|------------------|---------------|
-| RoBERTa-BCE vs Transformer-BCE (wnDCG@5)       |  0.022 | [+0.014, +0.029] | yes           |
-| RoBERTa+RL vs RoBERTa-BCE (Set-F1)             |  0.017 | [+0.011, +0.022] | yes           |
-| RoBERTa+RL vs RoBERTa-BCE (wnDCG@5)            |  0.007 | [+0.003, +0.011] | yes           |
-| Transformer+RL vs Transformer-BCE (Set-F1)     |  0.025 | [+0.019, +0.030] | yes           |
-| LLM rerank vs Transformer+RL (wnDCG@5, subset) | -0.01  | [-0.047, +0.027] | no            |
-| LLM rerank vs Transformer+RL (F1@5, subset)    |  0.022 | [+0.001, +0.045] | yes           |
-| RoBERTa+RL vs LLM rerank (wnDCG@5, subset)     |  0.046 | [+0.007, +0.085] | yes           |
+| RoBERTa-BCE vs Transformer-BCE (wnDCG@5)       |  0.016 | [+0.009, +0.024] | yes           |
+| RoBERTa+RL vs Transformer+RL (wnDCG@5)         |  0.003 | [-0.005, +0.010] | no            |
+| RoBERTa+RL vs Transformer+RL (Set-F1)          |  0.017 | [+0.010, +0.024] | yes           |
+| RoBERTa+RL vs RoBERTa-BCE (Set-F1)             |  0.014 | [+0.008, +0.019] | yes           |
+| RoBERTa+RL vs RoBERTa-BCE (wnDCG@5)            |  0.003 | [-0.001, +0.007] | no            |
+| Transformer+RL vs Transformer-BCE (Set-F1)     |  0.024 | [+0.019, +0.030] | yes           |
+| LLM rerank vs Transformer+RL (wnDCG@5, subset) | -0.014 | [-0.053, +0.024] | no            |
+| LLM rerank vs Transformer+RL (F1@5, subset)    |  0.013 | [-0.010, +0.036] | no            |
+| RoBERTa+RL vs LLM rerank (wnDCG@5, subset)     |  0.023 | [-0.015, +0.062] | no            |
 
 
 ### Efficiency — CPU, 1 thread
 
 | Model                          |   Latency p50 (ms) |   p95 (ms) |   Throughput (captions/s) |   Size (MB) | Params   |   Train (min, 2 vCPU) |
 |--------------------------------|--------------------|------------|---------------------------|-------------|----------|-----------------------|
-| Keyword rules (no learning)    |               0.19 |       0.39 |                     5,816 |           0 | –        |                   0   |
-| TF-IDF + LogReg                |               0.6  |       0.71 |                    21,425 |          43 | 11.0M    |                   1.5 |
-| Transformer from scratch (BCE) |               2.37 |       2.8  |                     1,121 |          14 | 3.6M     |                  23.6 |
-| Transformer from scratch + RL  |               2.01 |       2.53 |                     1,176 |          14 | 3.6M     |                  31.8 |
-| RoBERTa-base fine-tuned (BCE)  |             112.87 |     132.04 |                        32 |         474 | 124.3M   |                  78.5 |
-| RoBERTa-base fine-tuned + RL   |             112.87 |     132.04 |                        32 |         474 | 124.3M   |                  89.5 |
+| Keyword rules (no learning)    |               6.86 |      11.7  |                    29,045 |           0 | –        |                   0   |
+| TF-IDF + LogReg                |               0.48 |       0.57 |                    27,645 |          45 | 11.6M    |                   1.4 |
+| Transformer from scratch (BCE) |               1.31 |       1.58 |                     1,579 |          14 | 3.6M     |                  24   |
+| Transformer from scratch + RL  |               1.3  |       1.47 |                     1,799 |          14 | 3.6M     |                  31.9 |
+| RoBERTa-base fine-tuned (BCE)  |              77.39 |      98.88 |                        46 |         474 | 124.4M   |                  60.6 |
+| RoBERTa-base fine-tuned + RL   |              77.39 |      98.88 |                        46 |         474 | 124.4M   |                  68.7 |
 
 
 ### LLM cost per clip (tokens estimated at ~4 chars/token)
 
 | Stage                       |   Input tokens |   Output tokens |   Calls |
 |-----------------------------|----------------|-----------------|---------|
-| LLM zero-shot               |            899 |              16 |     200 |
-| Transformer+RL → LLM rerank |            263 |              26 |     200 |
+| LLM zero-shot               |            921 |              16 |     200 |
+| Transformer+RL → LLM rerank |            262 |              26 |     200 |
