@@ -14,7 +14,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("caption", nargs="+")
 ap.add_argument("--llm", choices=["anthropic", "openai", "ollama"], help="add LLM re-ranking (needs key / server)")
 ap.add_argument("--model", default="claude-opus-5-5", help="LLM model name")
-ap.add_argument("--tagger", choices=["auto", "roberta", "transformer", "keras"], default="auto")
+ap.add_argument("--tagger", choices=["auto", "roberta", "transformer"], default="auto")
 args = ap.parse_args()
 caption = " ".join(args.caption)
 

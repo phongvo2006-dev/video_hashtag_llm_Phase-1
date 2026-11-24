@@ -41,12 +41,10 @@ train_caps = {c.lower().strip() for v in videos if v.split == "train" for c in v
 clean = [i for i, v in enumerate(vte) if v.eval_caption.lower().strip() not in train_caps]
 
 NAMES = {"keyword": "Keyword rules (no learning)", "tfidf_lr": "TF-IDF + LogReg",
-         "transformer_bce": "Transformer from scratch (BCE)", "transformer_rl": "Transformer from scratch + RL",
+         "keras_bce": "Transformer from scratch (Keras)",
          "roberta_bce": "RoBERTa-base fine-tuned (BCE)", "roberta_rl": "RoBERTa-base fine-tuned + RL",
-         "keras_bce": "Keras Transformer (BCE)", "keras_rl": "Keras Transformer + RL",
-         "llm_zero_shot": "LLM zero-shot", "llm_hybrid": "Transformer+RL → LLM rerank"}
-MODELS = [n for n in ["keyword", "tfidf_lr", "transformer_bce", "transformer_rl", "keras_bce", "keras_rl",
-                      "roberta_bce", "roberta_rl"]
+         "llm_zero_shot": "LLM zero-shot", "llm_hybrid": "RoBERTa+RL → LLM rerank"}
+MODELS = [n for n in ["keyword", "tfidf_lr", "keras_bce", "roberta_bce", "roberta_rl"]
           if rpath(f"results/preds/{n}_test.npy").exists()]
 P = {n: (np.load(rpath(f"results/preds/{n}_test.npy")), np.load(rpath(f"results/preds/{n}_val.npy")))
      for n in MODELS}
@@ -116,6 +114,23 @@ for stage in ["zero_shot", "hybrid"]:
                                       for p, i in zip(preds, sub)]))
         subset[f"llm_{stage}"] = m
 
+# why does the rerank score lower on wnDCG? separate ordering from tag choice
+diag = {}
+if "llm_hybrid" in llm_preds and "roberta_rl" in MODELS:
+    Sr = P["roberta_rl"][0]
+    hyb = llm_preds["llm_hybrid"]
+    reord = [sorted(p, key=lambda t, i=i: -Sr[i, labels.index[t]]) for p, i in zip(hyb, sub)]
+    rtop = [top_cache["roberta_rl"][i] for i in sub]
+    truth = [labels.category_tags[true_cat[i]] for i in sub]
+    diag = {"wnDCG_llm": float(per_ex("wnDCG", hyb, sub).mean()),
+            "wnDCG_llm_tags_in_roberta_order": float(per_ex("wnDCG", reord, sub).mean()),
+            "wnDCG_roberta_rl": float(per_ex("wnDCG", rtop, sub).mean()),
+            "true_category_in_llm_tags": float(np.mean([t in p for t, p in zip(truth, hyb)])),
+            "true_category_in_roberta_top5": float(np.mean([t in p for t, p in zip(truth, rtop)])),
+            "category_tags_per_roberta_top5": float(np.mean([sum(t in CATS for t in p) for p in rtop])),
+            "llm_tags_outside_candidates": float(np.mean([len(set(p) - set(np.array(labels.vocab)[np.argsort(-Sr[i])[:12]]))
+                                                          for p, i in zip(hyb, sub)]))}
+
 # ============================ 4. paired bootstrap =====================================
 sig = {}
 
@@ -124,41 +139,42 @@ def add(name, a, b):
     sig[name] = boot(a, b)
 
 
-if "roberta_bce" in MODELS:
-    add("RoBERTa-BCE vs Transformer-BCE (wnDCG@5)", per_ex("wnDCG", top_cache["roberta_bce"], ALL),
-        per_ex("wnDCG", top_cache["transformer_bce"], ALL))
-if "roberta_rl" in MODELS:
-    add("RoBERTa+RL vs Transformer+RL (wnDCG@5)", per_ex("wnDCG", top_cache["roberta_rl"], ALL),
-        per_ex("wnDCG", top_cache["transformer_rl"], ALL))
-    add("RoBERTa+RL vs Transformer+RL (Set-F1)", per_ex("f1", set_cache["roberta_rl"], ALL),
-        per_ex("f1", set_cache["transformer_rl"], ALL))
-    add("RoBERTa+RL vs RoBERTa-BCE (Set-F1)", per_ex("f1", set_cache["roberta_rl"], ALL),
-        per_ex("f1", set_cache["roberta_bce"], ALL))
-    add("RoBERTa+RL vs RoBERTa-BCE (wnDCG@5)", per_ex("wnDCG", top_cache["roberta_rl"], ALL),
-        per_ex("wnDCG", top_cache["roberta_bce"], ALL))
-add("Transformer+RL vs Transformer-BCE (Set-F1)", per_ex("f1", set_cache["transformer_rl"], ALL),
-    per_ex("f1", set_cache["transformer_bce"], ALL))
-if "keras_rl" in MODELS:
-    add("Keras+RL vs Keras-BCE (Set-F1)", per_ex("f1", set_cache["keras_rl"], ALL),
-        per_ex("f1", set_cache["keras_bce"], ALL))
-    add("Keras (TensorFlow)+RL vs PyTorch Transformer+RL (wnDCG@5)", per_ex("wnDCG", top_cache["keras_rl"], ALL),
-        per_ex("wnDCG", top_cache["transformer_rl"], ALL))
-    add("Keras (TensorFlow)+RL vs PyTorch Transformer+RL (Set-F1)", per_ex("f1", set_cache["keras_rl"], ALL),
-        per_ex("f1", set_cache["transformer_rl"], ALL))
+W = lambda n: per_ex("wnDCG", top_cache[n], ALL)       # noqa: E731
+F = lambda n: per_ex("f1", set_cache[n], ALL)          # noqa: E731
+# (a) what pretraining buys: the optimal model vs every cheaper model, on the primary metric
+for n in ["keras_bce", "tfidf_lr", "keyword"]:
+    add(f"RoBERTa+RL vs {NAMES[n]} (wnDCG@5)", W("roberta_rl"), W(n))
+add("RoBERTa-BCE vs Transformer from scratch (wnDCG@5)", W("roberta_bce"), W("keras_bce"))
+# (b) what RL buys, and what it costs
+add("RoBERTa+RL vs RoBERTa-BCE (Set-F1, thr 0.5)", F("roberta_rl"), F("roberta_bce"))
+add("RoBERTa+RL vs RoBERTa-BCE (wnDCG@5)", W("roberta_rl"), W("roberta_bce"))
+add("RoBERTa+RL vs RoBERTa-BCE (F1@5, fixed 5 tags)", per_ex("f1", top_cache["roberta_rl"], ALL),
+    per_ex("f1", top_cache["roberta_bce"], ALL))
+thr_bce = full["roberta_bce"]["tuned_thr"]
+add("RoBERTa+RL (thr 0.5) vs RoBERTa-BCE with val-tuned threshold (Set-F1)", F("roberta_rl"),
+    per_ex("f1", sets("roberta_bce", P["roberta_bce"][0], thr_bce), ALL))
+# (c) LLM on top of / instead of the optimal model (subset)
 if "llm_hybrid" in llm_preds:
-    rl_sub = [top_cache["transformer_rl"][i] for i in sub]
+    rl_sub = [top_cache["roberta_rl"][i] for i in sub]
     for metric in ["wnDCG", "f1"]:
         tag = "wnDCG@5" if metric == "wnDCG" else "F1@5"
-        add(f"LLM rerank vs Transformer+RL ({tag}, subset)", per_ex(metric, llm_preds["llm_hybrid"], sub),
-            per_ex(metric, [p[:K] for p in rl_sub], sub))
-    if "roberta_rl" in MODELS:
-        add("RoBERTa+RL vs LLM rerank (wnDCG@5, subset)",
-            per_ex("wnDCG", [top_cache["roberta_rl"][i] for i in sub], sub),
-            per_ex("wnDCG", llm_preds["llm_hybrid"], sub))
+        add(f"LLM rerank vs RoBERTa+RL ({tag}, subset)", per_ex(metric, llm_preds["llm_hybrid"], sub),
+            per_ex(metric, rl_sub, sub))
+if "llm_zero_shot" in llm_preds:
+    add("LLM zero-shot vs RoBERTa+RL (wnDCG@5, subset)", per_ex("wnDCG", llm_preds["llm_zero_shot"], sub),
+        per_ex("wnDCG", [top_cache["roberta_rl"][i] for i in sub], sub))
+
+# ============================ 4b. RL vs threshold tuning (validation) ==================
+thr_grid = [round(float(t), 3) for t in np.arange(0.1, 0.71, 0.05)]
+sweep = {"threshold": thr_grid}
+for n in [m for m in ["roberta_bce", "roberta_rl"] if m in MODELS]:
+    Sv = P[n][1]
+    sweep[n] = {"SetF1": [set_f1(labels.threshold(Sv, t), Yval)["SetF1"] for t in thr_grid],
+                "avg_tags": [set_f1(labels.threshold(Sv, t), Yval)["avg_tags"] for t in thr_grid]}
 
 # ============================ 5. per-category =========================================
 per_cat = {}
-for n in [m for m in ["keyword", "tfidf_lr", "transformer_rl", "roberta_rl"] if m in MODELS]:
+for n in [m for m in ["tfidf_lr", "keras_bce", "roberta_rl"] if m in MODELS]:
     per_cat[n] = {}
     for c, tag in enumerate(labels.category_tags):
         ix = [i for i, t in enumerate(true_cat) if t == c]
@@ -166,6 +182,11 @@ for n in [m for m in ["keyword", "tfidf_lr", "transformer_rl", "roberta_rl"] if 
 
 # ============================ 6. efficiency ===========================================
 torch.set_num_threads(int(os.environ.get("BENCH_THREADS", "1")))
+import keras  # noqa: E402
+import tensorflow as tfl  # noqa: E402
+from hashtagger.models import keras_transformer  # noqa: E402,F401  (registers custom layers)
+tfl.config.threading.set_intra_op_parallelism_threads(int(os.environ.get("BENCH_THREADS", "1")))
+tfl.config.threading.set_inter_op_parallelism_threads(1)
 caps = Xte[:300]
 
 
@@ -193,7 +214,6 @@ def carry(n):
 
 from hashtagger.models.keyword import KeywordTagger  # noqa: E402
 from hashtagger.models.tfidf_linear import TfidfLinear  # noqa: E402
-from hashtagger.models import transformer as T  # noqa: E402
 
 kw = KeywordTagger(labels, meta["gerunds"], np.load(ck / "keyword_prior.npy"))
 eff["keyword"] = {**bench(kw.scores), "size_mb": 0.0, "params": 0, "train_sec": 0.0}
@@ -201,27 +221,11 @@ tfidf = TfidfLinear.load(str(ck / "tfidf_lr.pkl"))
 lb = load_json(rpath("results/train_log_baselines.json"))["tfidf_lr"]
 eff["tfidf_lr"] = {**bench(tfidf.predict_proba), "size_mb": mb(ck / "tfidf_lr.pkl"), "params": lb["params"],
                    "train_sec": lb["train_sec"]}
-lt, lr_ = load_json(rpath("results/train_log_transformer.json")), load_json(rpath("results/train_log_rl.json"))
-for n, tr in [("transformer_bce", lt["train_sec"]), ("transformer_rl", lt["train_sec"] + lr_["train_sec"])]:
-    if not (ck / f"{n}.pt").exists():
-        carry(n)
-        continue
-    mdl, tok, _ = T.load(str(ck / f"{n}.pt"))
-    eff[n] = {**bench(lambda c, mdl=mdl, tok=tok: T.predict_proba(mdl, tok.encode(c, mdl.cfg["max_len"]))),
-              "size_mb": mb(ck / f"{n}.pt"), "params": mdl.n_params(), "train_sec": tr}
-if "keras_rl" in MODELS and (ck / "keras_rl.keras").exists():
-    import keras  # noqa: E402
-    import tensorflow as tfl  # noqa: E402
-    from hashtagger.models import keras_transformer  # noqa: E402,F401  (registers custom layers)
-    tfl.config.threading.set_intra_op_parallelism_threads(int(os.environ.get("BENCH_THREADS", "1")))
-    km = keras.models.load_model(ck / "keras_rl.keras")
-    kfn = tfl.function(lambda x: km(x), input_signature=[tfl.TensorSpec([None], tfl.string)])
-    lk = load_json(rpath("results/train_log_keras.json"))
-    b = bench(lambda c: kfn(tfl.constant(c)).numpy())
-    eff["keras_bce"] = {**b, "size_mb": mb(ck / "keras_bce.keras"), "params": lk["params"],
-                        "train_sec": lk["bce_train_sec"]}
-    eff["keras_rl"] = {**b, "size_mb": mb(ck / "keras_rl.keras"), "params": lk["params"],
-                       "train_sec": lk["bce_train_sec"] + lk["rl_train_sec"]}
+km = keras.models.load_model(ck / "keras_bce.keras")
+kfn = tfl.function(lambda x: km(x), input_signature=[tfl.TensorSpec([None], tfl.string)])
+lk = load_json(rpath("results/train_log_keras.json"))
+eff["keras_bce"] = {**bench(lambda c: kfn(tfl.constant(c)).numpy()), "size_mb": mb(ck / "keras_bce.keras"),
+                    "params": lk["params"], "train_sec": lk["bce_train_sec"]}
 if "roberta_rl" in MODELS:
     if (ck / "roberta_rl.pt").exists():
         from hashtagger.models.pretrained import RobertaTagger, predict_proba as rp  # noqa: E402
@@ -242,7 +246,7 @@ for stage in ["zero_shot", "hybrid"]:
         eff[f"llm_{stage}"] = load_json(f)
 
 save_json({"k": K, "primary_metric": f"wnDCG@{K}", "test_full": full, "test_clean": clean_res,
-           "test_llm_subset": subset, "significance": sig, "per_category_wndcg": per_cat, "efficiency": eff,
+           "test_llm_subset": subset, "llm_rerank_diagnosis": diag, "val_threshold_sweep": sweep, "significance": sig, "per_category_wndcg": per_cat, "efficiency": eff,
            "n_test": len(vte), "n_clean": len(clean), "n_subset": len(sub)}, rpath("results/metrics.json"))
 
 # ============================ 7. markdown =============================================

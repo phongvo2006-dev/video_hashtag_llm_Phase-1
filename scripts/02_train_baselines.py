@@ -1,4 +1,4 @@
-"""Step 2 — baselines: rule-based keyword tagger and TF-IDF + logistic regression."""
+"""Step 2 — baselines: rule-based keyword tagger and TF-IDF + logistic regression (TensorFlow)."""
 import sys
 import time
 from pathlib import Path
@@ -35,7 +35,7 @@ log["keyword"] = {"train_sec": 0.0, "params": 0}
 tc = cfg["tfidf"]
 m = TfidfLinear(len(labels), tc["max_features"], tc["ngram_range"])
 t0 = time.perf_counter()
-hist = m.fit(Xtr, Ytr, epochs=tc["epochs"], lr=tc["lr"], batch_size=tc["batch_size"])
+hist = m.fit(Xtr, Ytr, epochs=tc["epochs"], lr=tc["lr"], batch_size=tc["batch_size"], seed=cfg["seed"])
 log["tfidf_lr"] = {"train_sec": time.perf_counter() - t0, "params": m.n_params(), "loss": hist}
 m.save(str(ckpt / "tfidf_lr.pkl"))
 for split in ["val", "test"]:

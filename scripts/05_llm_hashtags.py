@@ -1,7 +1,7 @@
 """Step 5 — LLM stages on a fixed test subset.
 
   zero_shot : LLM alone, caption -> 5 hashtags from the allowed vocabulary
-  hybrid    : fine-tuned Transformer(RL) proposes top-12 candidates + confidences,
+  hybrid    : RoBERTa + RL (the best fine-tuned tagger) proposes top-12 candidates + confidences,
               the LLM re-ranks / filters / adds one missed tag (+ creative tags)
 
 Usage
@@ -46,7 +46,7 @@ subset = sorted(rng.choice(len(vte), cfg["eval"]["llm_subset_size"], replace=Fal
 save_json([vte[i].video_id for i in subset], rpath("results/llm_subset_ids.json"))
 
 if args.stage == "hybrid":
-    P = np.load(rpath("results/preds/transformer_rl_test.npy"))
+    P = np.load(rpath("results/preds/roberta_rl_test.npy"))
 
 jobs, cands = [], {}
 for i in subset:

@@ -1,7 +1,4 @@
-"""TensorFlow / Keras implementation of the hashtag Transformer (+ RL fine-tuning).
-
-Same architecture and recipe as the PyTorch model in ``transformer.py``, so the two frameworks
-can be compared like-for-like:
+"""Transformer encoder for caption -> hashtags, trained from scratch in TensorFlow / Keras.
 
   raw caption string
     -> keras.layers.TextVectorization  (word vocabulary from TRAINING captions, min freq 2)
@@ -9,9 +6,7 @@ can be compared like-for-like:
     -> 2 pre-LayerNorm Transformer encoder blocks (MultiHeadAttention + GELU feed-forward)
     -> masked mean-pool -> Dense(GELU) -> Dropout -> Dense(|vocab|) logits
 
-Supervised stage: ``model.fit`` with BCE, AdamW, warm-up + cosine decay, gradient clipping.
-RL stage: a custom ``tf.GradientTape`` loop implementing REINFORCE with a leave-one-out
-(RLOO) baseline on a set-F1 reward, plus a BCE anchor.
+Training: ``model.fit`` with BCE, AdamW, warm-up + cosine decay, gradient clipping.
 
 The exported model takes raw strings, so it can be served directly (TF Serving / TFLite).
 """
@@ -150,51 +145,3 @@ def train_bce(encoder, ids, Y, epochs, lr, batch_size, seed=42, log=print):
 def predict_proba(encoder, ids, batch_size=1024) -> np.ndarray:
     return np.concatenate([tf.sigmoid(encoder(ids[b:b + batch_size], training=False)).numpy()
                            for b in range(0, len(ids), batch_size)])
-
-
-def f1_reward(S, Y):
-    hit = tf.reduce_sum(S * Y, -1)
-    denom = tf.reduce_sum(S, -1) + tf.reduce_sum(Y, -1)
-    return tf.where(hit > 0, 2 * hit / tf.maximum(denom, 1.0), tf.zeros_like(hit))
-
-
-def rl_finetune(encoder, ids, Y, epochs, lr, batch_size, n_samples=4, bce_anchor=0.5, eval_fn=None,
-                eval_every=50, seed=42, log=print) -> dict:
-    """REINFORCE + RLOO on a set-F1 reward, written as a custom tf.GradientTape loop."""
-    opt = keras.optimizers.AdamW(learning_rate=lr, weight_decay=0.0, clipnorm=1.0)
-    K = n_samples
-
-    @tf.function(reduce_retracing=True)
-    def step(x, y):
-        with tf.GradientTape() as tape:
-            logits = encoder(x, training=True)                                  # [B, L]
-            probs = tf.sigmoid(logits)
-            S = tf.cast(tf.random.uniform(tf.concat([[tf.shape(x)[0], K], tf.shape(probs)[1:]], 0))
-                        < probs[:, None, :], tf.float32)                         # [B, K, L] sampled tag sets
-            r = f1_reward(S, y[:, None, :])                                     # [B, K]
-            adv = tf.stop_gradient(r - (tf.reduce_sum(r, 1, keepdims=True) - r) / (K - 1))   # RLOO
-            logp = -tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(
-                labels=S, logits=tf.repeat(logits[:, None, :], K, axis=1)), -1)  # log pi(S)
-            bce = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y, logits=logits))
-            loss = -tf.reduce_mean(adv * logp) + bce_anchor * bce
-        grads = tape.gradient(loss, encoder.trainable_variables)
-        opt.apply_gradients(zip(grads, encoder.trainable_variables))
-        greedy = f1_reward(tf.cast(probs >= 0.5, tf.float32), y)
-        return tf.reduce_mean(r), tf.reduce_mean(greedy)
-
-    hist = {"step": [0], "reward_sample": [float("nan")], "reward_greedy": [float("nan")],
-            "val_setf1": [eval_fn() if eval_fn else float("nan")]}
-    n = 0
-    for ep in range(epochs):
-        ds = (tf.data.Dataset.from_tensor_slices((ids, Y)).shuffle(len(ids), seed=seed + ep)
-              .batch(batch_size).prefetch(tf.data.AUTOTUNE))
-        rs, rg = [], []
-        for x, y in ds:
-            a, b = step(x, y)
-            rs.append(float(a)); rg.append(float(b)); n += 1
-            if eval_fn is not None and n % eval_every == 0:
-                hist["step"].append(n); hist["val_setf1"].append(eval_fn())
-                hist["reward_sample"].append(float(np.mean(rs[-eval_every:])))
-                hist["reward_greedy"].append(float(np.mean(rg[-eval_every:])))
-        log(f"  [keras-rl] epoch {ep + 1}/{epochs} reward(sample)={np.mean(rs):.4f} reward(greedy)={np.mean(rg):.4f}")
-    return hist

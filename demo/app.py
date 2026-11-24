@@ -1,6 +1,7 @@
 """Gradio web demo:  python demo/app.py  ->  http://localhost:7860
 
-Type a video caption, get hashtags from the RL-fine-tuned Transformer; tick
+Type a video caption, get hashtags from RoBERTa + RL (or the 14 MB Keras Transformer
+if RoBERTa has not been trained locally); tick
 "LLM polish" to send the candidates to an LLM (needs ANTHROPIC_API_KEY,
 OPENAI_API_KEY, or a local Ollama server).
 """
@@ -52,7 +53,7 @@ def run(caption: str, use_llm: bool):
 
 
 with gr.Blocks(title="Video Hashtag Generator") as demo:
-    gr.Markdown("# 🎬 Video Hashtag Generator\nTransformer + RL fine-tuning, optional LLM re-ranking. "
+    gr.Markdown(f"# 🎬 Video Hashtag Generator\nTagger: **{H.kind}**, optional LLM re-ranking. "
                 "Trained on MSR-VTT (10k videos, 20 categories).")
     with gr.Row():
         with gr.Column():

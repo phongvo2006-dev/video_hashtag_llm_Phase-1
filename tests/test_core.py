@@ -48,3 +48,14 @@ def test_category_suite():
     S = np.array([[0.9, 0.5, 0.1], [0.2, 0.3, 0.8]])
     m = category_suite(S, [0, 1, 2], [1, 2])
     assert m["CatTop1"] == 0.5 and m["CatTop2"] == 1.0
+
+
+def test_tfidf_tensorflow_learns():
+    from hashtagger.models.tfidf_linear import TfidfLinear
+    caps = ["a man plays guitar", "a woman plays guitar on stage", "a chef cooks pasta", "a cook makes pasta"] * 5
+    Y = np.array([[1, 0], [1, 0], [0, 1], [0, 1]] * 5, dtype=np.float32)
+    m = TfidfLinear(2, ngram_range=(1, 1))
+    m.vec.set_params(min_df=1)
+    m.fit(caps, Y, epochs=20, batch_size=4, log=lambda *_: None)
+    p = m.predict_proba(["someone plays guitar", "pasta being cooked"])
+    assert p[0, 0] > p[0, 1] and p[1, 1] > p[1, 0]

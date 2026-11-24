@@ -1,7 +1,7 @@
 """Step 8 — fine-tune pretrained RoBERTa-base (BCE), then RL (REINFORCE + RLOO, set-F1 reward).
 
 Resumable: a full training state (weights + optimizer + scheduler + position) is saved every
-SAVE_EVERY steps and at each epoch end; `python scripts/08_finetune_roberta.py --resume` continues.
+SAVE_EVERY steps and at each epoch end; `python scripts/04_finetune_roberta.py --resume` continues.
 
 Leakage guards
   * label vocabulary, label prior and all training captions come from the TRAIN split only

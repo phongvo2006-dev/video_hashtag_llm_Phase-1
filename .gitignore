@@ -5,7 +5,6 @@ __pycache__/
 data/raw/
 data/processed/
 checkpoints/*.pkl
-checkpoints/transformer_bce.pt
 results/preds/*.npy
 .env
 # fine-tuned RoBERTa checkpoints are ~500 MB (> GitHub's 100 MB limit); reproduce with `make roberta`
@@ -13,4 +12,3 @@ checkpoints/roberta_*.pt
 checkpoints/roberta_*.tmp
 checkpoints/*.tmp
 data/processed/test_gains.json
-checkpoints/keras_bce.keras

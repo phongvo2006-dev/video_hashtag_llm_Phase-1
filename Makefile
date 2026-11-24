@@ -1,33 +1,27 @@
 PY ?= python
 
-.PHONY: all data baselines transformer rl keras roberta llm eval figures test demo clean
+.PHONY: all data baselines transformer roberta llm eval figures test demo clean
 
-all: data baselines transformer rl keras roberta llm eval figures
+all: data baselines transformer roberta llm eval figures
 
 data:            ## download MSR-VTT annotations + build hashtag labels
 	bash scripts/download_data.sh
 	$(PY) scripts/01_prepare_data.py
 
-baselines:       ## keyword rules + TF-IDF logistic regression
+baselines:       ## keyword rules + TF-IDF logistic regression (TensorFlow)
 	$(PY) scripts/02_train_baselines.py
 
-transformer:     ## supervised (BCE) Transformer
+transformer:     ## Transformer encoder from scratch (TensorFlow/Keras, BCE)
 	$(PY) scripts/03_train_transformer.py
 
-rl:              ## REINFORCE/RLOO fine-tuning on set-F1 reward
-	$(PY) scripts/04_rl_finetune.py
+roberta:         ## fine-tune pretrained RoBERTa-base (BCE, then RL); add RESUME=1 to continue an interrupted run
+	$(PY) scripts/04_finetune_roberta.py $(if $(RESUME),--resume,)
 
-keras:           ## the same Transformer + RL in TensorFlow/Keras
-	$(PY) scripts/09_train_keras.py
-
-roberta:         ## fine-tune pretrained RoBERTa-base (BCE + RL); add RESUME=1 to continue an interrupted run
-	$(PY) scripts/08_finetune_roberta.py $(if $(RESUME),--resume,)
-
-llm:             ## LLM zero-shot + hybrid rerank (uses cache unless provider is set)
+llm:             ## LLM zero-shot + hybrid rerank of RoBERTa+RL candidates (uses cache unless provider is set)
 	$(PY) scripts/05_llm_hashtags.py --stage zero_shot
 	$(PY) scripts/05_llm_hashtags.py --stage hybrid
 
-eval:
+eval:            ## metrics, significance tests, efficiency
 	$(PY) scripts/06_evaluate.py
 
 figures:
