@@ -69,11 +69,11 @@ benchmark containing:
 
 The standard split used in this project is:
 
-  Split          Number of clips
-  ------------ -----------------
-  Train                    6,513
-  Validation                 497
-  Test                     2,990
+| Split | Number of clips |
+|---|---|
+| Train | 6,513 |
+| Validation | 497 |
+| Test | 2,990 |
 
 MSR-VTT was selected because it provides both natural-language
 descriptions and video-category annotations. This makes it possible to
@@ -145,33 +145,14 @@ flowchart TD
 
 ### Main Stages
 
-  -----------------------------------------------------------------------
-  Stage                               Description
-  ----------------------------------- -----------------------------------
-  Data preparation                    Normalize captions, construct
-                                      consensus-based labels, and create
-                                      the label vocabulary.
-
-  Baseline modelling                  Establish lexical and conventional
-                                      machine-learning baselines.
-
-  Neural modelling                    Train a Transformer encoder from
-                                      scratch and fine-tune pretrained
-                                      RoBERTa.
-
-  Reward optimization                 Fine-tune RoBERTa with a
-                                      policy-gradient objective based on
-                                      set-level F1.
-
-  LLM experiments                     Evaluate zero-shot hashtag
-                                      generation and LLM reranking of
-                                      model candidates.
-
-  Evaluation                          Compare predictive quality,
-                                      category performance, robustness,
-                                      statistical uncertainty, and
-                                      inference cost.
-  -----------------------------------------------------------------------
+| Stage | Description |
+|---|---|
+| Data preparation | Normalize captions, construct consensus-based labels, and create the label vocabulary. |
+| Baseline modelling | Establish lexical and conventional machine-learning baselines. |
+| Neural modelling | Train a Transformer encoder from scratch and fine-tune pretrained RoBERTa. |
+| Reward optimization | Fine-tune RoBERTa with a policy-gradient objective based on set-level F1. |
+| LLM experiments | Evaluate zero-shot hashtag generation and LLM reranking of model candidates. |
+| Evaluation | Compare predictive quality, category performance, robustness, statistical uncertainty, and inference cost. |
 
 ------------------------------------------------------------------------
 
@@ -181,42 +162,15 @@ The models are organized as a comparison ladder. Each model addresses a
 different question about the value of learning, contextual
 representations, pretraining, and reward-based optimization.
 
-  -----------------------------------------------------------------------
-  Model                   Approach                Purpose
-  ----------------------- ----------------------- -----------------------
-  Keyword rules           Caption keyword         Establish a simple
-                          matching and            non-learning baseline.
-                          popular-tag fallback    
-
-  TF-IDF + Logistic       Word unigram/bigram     Measure the value of
-  Regression              features with           supervised learning
-                          multi-label sigmoid     with sparse lexical
-                          outputs                 features.
-
-  Transformer from        Lightweight Transformer Evaluate contextual
-  scratch                 encoder implemented in  representation learning
-                          TensorFlow/Keras        without pretrained
-                                                  weights.
-
-  RoBERTa-base (BCE)      Pretrained RoBERTa      Measure the
-                          encoder with a          contribution of
-                          multi-label             large-scale
-                          classification head     language-model
-                                                  pretraining.
-
-  **RoBERTa-base + RL**   RoBERTa fine-tuning     Optimize the predicted
-                          followed by             tag set using a
-                          policy-gradient         task-level reward.
-                          optimization            
-
-  LLM zero-shot           Prompt an LLM to        Assess generation
-                          generate hashtags       without task-specific
-                          directly from a caption supervised training.
-
-  RoBERTa + RL + LLM      LLM selects or reorders Assess whether LLM
-  reranking               candidates proposed by  reasoning improves
-                          the best tagger         candidate selection.
-  -----------------------------------------------------------------------
+| Model | Approach | Purpose |
+|---|---|---|
+| Keyword rules | Caption keyword matching and popular-tag fallback | Establish a simple non-learning baseline. |
+| TF-IDF + Logistic Regression | Word unigram/bigram features with multi-label sigmoid outputs | Measure the value of supervised learning with sparse lexical features. |
+| Transformer from scratch | Lightweight Transformer encoder implemented in TensorFlow/Keras | Evaluate contextual representation learning without pretrained weights. |
+| RoBERTa-base (BCE) | Pretrained RoBERTa encoder with a multi-label classification head | Measure the contribution of large-scale language-model pretraining. |
+| **RoBERTa-base + RL** | RoBERTa fine-tuning followed by policy-gradient optimization | Optimize the predicted tag set using a task-level reward. |
+| LLM zero-shot | Prompt an LLM to generate hashtags directly from a caption | Assess generation without task-specific supervised training. |
+| RoBERTa + RL + LLM reranking | LLM selects or reorders candidates proposed by the best tagger | Assess whether LLM reasoning improves candidate selection. |
 
 ### RoBERTa Multi-label Classifier
 
@@ -276,40 +230,15 @@ No single metric fully captures hashtag quality. The evaluation suite
 therefore considers ranking quality, relevance coverage, set prediction,
 and category recognition.
 
-  -----------------------------------------------------------------------
-  Metric                  What it measures        Role
-  ----------------------- ----------------------- -----------------------
-  **wnDCG@5**             Ranking quality with    Primary
-                          relevance weighted by   
-                          annotator agreement;    
-                          the primary metric.     
-
-  nDCG@5                  Ranking quality using   Supporting
-                          binary relevance.       
-
-  wRecall@5               Proportion of           Supporting
-                          annotator-derived       
-                          relevance votes covered 
-                          by the top five         
-                          predictions.            
-
-  Hit@5                   Proportion of clips     Supporting
-                          with at least one       
-                          relevant prediction in  
-                          the top five.           
-
-  Set-F1                  Precision-recall        Supporting
-                          balance for the set     
-                          emitted by the model.   
-
-  Category top-1 / top-2  Accuracy of the         Supporting
-                          predicted video         
-                          category.               
-
-  Category macro-F1       Category performance    Supporting
-                          while accounting for    
-                          class imbalance.        
-  -----------------------------------------------------------------------
+| Metric | What it measures | Role |
+|---|---|---|
+| **wnDCG@5** | Ranking quality with relevance weighted by annotator agreement; the primary metric. | Primary |
+| nDCG@5 | Ranking quality using binary relevance. | Supporting |
+| wRecall@5 | Proportion of annotator-derived relevance votes covered by the top five predictions. | Supporting |
+| Hit@5 | Proportion of clips with at least one relevant prediction in the top five. | Supporting |
+| Set-F1 | Precision-recall balance for the set emitted by the model. | Supporting |
+| Category top-1 / top-2 | Accuracy of the predicted video category. | Supporting |
+| Category macro-F1 | Category performance while accounting for class imbalance. | Supporting |
 
 ### Why wnDCG@5?
 
@@ -337,23 +266,13 @@ examples.
 The primary comparison uses all **2,990 test clips**. The main metric is
 wnDCG@5.
 
-  -----------------------------------------------------------------------------------
-  Model                   wnDCG@5        Hit@5       Set-F1     Category     Category
-                                                                   top-1        top-2
-  ------------------ ------------ ------------ ------------ ------------ ------------
-  Keyword rules             0.302        76.2%        0.321        14.1%        24.2%
-
-  TF-IDF + Logistic         0.501        83.4%        0.387        48.7%        62.0%
-  Regression                                                             
-
-  Transformer from          0.531        85.3%        0.447        52.1%        65.3%
-  scratch                                                                
-
-  RoBERTa-base (BCE)        0.559    **88.8%**        0.472    **54.7%**        69.2%
-
-  **RoBERTa-base +      **0.565**        88.2%    **0.489**        54.6%    **69.4%**
-  RL**                                                                   
-  -----------------------------------------------------------------------------------
+| Model | wnDCG@5 | Hit@5 | Set-F1 | Category top-1 | Category top-2 |
+|---|---|---|---|---|---|
+| Keyword rules | 0.302 | 76.2% | 0.321 | 14.1% | 24.2% |
+| TF-IDF + Logistic Regression | 0.501 | 83.4% | 0.387 | 48.7% | 62.0% |
+| Transformer from scratch | 0.531 | 85.3% | 0.447 | 52.1% | 65.3% |
+| RoBERTa-base (BCE) | 0.559 | **88.8%** | 0.472 | **54.7%** | 69.2% |
+| **RoBERTa-base + RL** | **0.565** | 88.2% | **0.489** | 54.6% | **69.4%** |
 
 **Best result:** RoBERTa-base + RL achieves the highest wnDCG@5
 (**0.565**) and Set-F1 (**0.489**) among the full-test comparisons.
@@ -365,11 +284,11 @@ category top-1 accuracy (**54.7%**).
 LLM experiments are evaluated on a fixed 200-clip subset. On this
 subset:
 
-  Model                            wnDCG@5
-  ------------------------------ ---------
-  RoBERTa-base + RL                  0.592
-  LLM zero-shot                      0.514
-  RoBERTa + RL → LLM reranking       0.543
+| Model | wnDCG@5 |
+|---|---|
+| RoBERTa-base + RL | 0.592 |
+| LLM zero-shot | 0.514 |
+| RoBERTa + RL → LLM reranking | 0.543 |
 
 These values are not directly comparable with the full-test table,
 because they are computed on a smaller subset. On the shared subset, the
@@ -379,23 +298,12 @@ LLM reranking stage does not improve wnDCG@5 over RoBERTa + RL.
 
 Selected paired-bootstrap comparisons on the full test set:
 
-  -----------------------------------------------------------------------
-  Comparison              Difference in wnDCG@5                    95% CI
-  ------------------- ------------------------- -------------------------
-  RoBERTa + RL                           +0.034        \[+0.026, +0.043\]
-  vs. Transformer                               
-  from scratch                                  
-
-  RoBERTa + RL                           +0.064        \[+0.055, +0.073\]
-  vs. TF-IDF +                                  
-  Logistic Regression                           
-
-  RoBERTa + RL                           +0.263        \[+0.252, +0.274\]
-  vs. Keyword rules                             
-
-  RoBERTa + RL                           +0.007        \[+0.003, +0.011\]
-  vs. RoBERTa (BCE)                             
-  -----------------------------------------------------------------------
+| Comparison | Difference in wnDCG@5 | 95% CI |
+|---|---|---|
+| RoBERTa + RL vs. Transformer from scratch | +0.034 | [+0.026, +0.043] |
+| RoBERTa + RL vs. TF-IDF + Logistic Regression | +0.064 | [+0.055, +0.073] |
+| RoBERTa + RL vs. Keyword rules | +0.263 | [+0.252, +0.274] |
+| RoBERTa + RL vs. RoBERTa (BCE) | +0.007 | [+0.003, +0.011] |
 
 The reported intervals for these comparisons exclude zero, indicating
 positive differences under the paired-bootstrap analysis.
@@ -468,10 +376,10 @@ requirements.
 
 The best-performing model is not necessarily the best deployment choice.
 
-  Model                        wnDCG@5   CPU latency (p50)   Model size
-  -------------------------- --------- ------------------- ------------
-  Transformer from scratch       0.531              2.3 ms        14 MB
-  RoBERTa + RL                   0.565              113 ms       474 MB
+| Model | wnDCG@5 | CPU latency (p50) | Model size |
+|---|---|---|---|
+| Transformer from scratch | 0.531 | 2.3 ms | 14 MB |
+| RoBERTa + RL | 0.565 | 113 ms | 474 MB |
 
 RoBERTa + RL provides higher ranking quality, but the lightweight Keras
 Transformer has substantially lower latency and storage requirements.
