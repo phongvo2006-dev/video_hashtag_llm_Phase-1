@@ -18,7 +18,8 @@ BLUE, ORANGE, AQUA, GRAY, LIGHT = "#2a78d6", "#eb6834", "#1baf7a", "#a3a29c", "#
 INK, INK2 = "#0b0b0b", "#52514e"
 NAMES = {"keyword": "Keyword rules", "tfidf_lr": "TF-IDF + LogReg", "transformer_bce": "Transformer (scratch)",
          "transformer_rl": "Transformer (scratch) + RL", "roberta_bce": "RoBERTa fine-tuned",
-         "roberta_rl": "RoBERTa fine-tuned + RL", "llm_zero_shot": "LLM zero-shot",
+         "roberta_rl": "RoBERTa fine-tuned + RL", "keras_bce": "Keras Transformer (TF)",
+         "keras_rl": "Keras Transformer (TF) + RL", "llm_zero_shot": "LLM zero-shot",
          "llm_hybrid": "Transformer+RL → LLM"}
 plt.rcParams.update({"font.size": 10, "axes.edgecolor": "#d6d5d0", "axes.labelcolor": INK2,
                      "xtick.color": INK2, "ytick.color": INK2, "axes.spines.top": False,
@@ -61,13 +62,14 @@ fig.savefig(FIG / "llm_subset.png"); plt.close(fig)
 # 3. quality vs latency ------------------------------------------------------------------
 eff = M["efficiency"]
 fig, ax = plt.subplots(figsize=(7, 4))
-for n in ["keyword", "tfidf_lr", "transformer_rl", "roberta_rl"]:
+for n in ["keyword", "tfidf_lr", "transformer_rl", "keras_rl", "roberta_rl"]:
     if n not in eff:
         continue
     x, y = eff[n]["latency_ms_p50"], full[n][W]
-    ax.scatter(x, y, s=70, color=BLUE if n == "roberta_rl" else GRAY, zorder=3, edgecolor="white", linewidth=2)
-    off, ha, va = {"transformer_rl": ((-8, 8), "right", "bottom"),
-                   "roberta_rl": ((-10, -10), "right", "top")}.get(n, ((8, -4), "left", "top"))
+    ax.scatter(x, y, s=70, color={"roberta_rl": BLUE, "keras_rl": ORANGE}.get(n, GRAY), zorder=3,
+               edgecolor="white", linewidth=2)
+    off, ha, va = {"transformer_rl": ((-8, 8), "right", "bottom"), "keras_rl": ((8, -6), "left", "top"),
+                   "roberta_rl": ((-10, 8), "right", "bottom")}.get(n, ((8, -4), "left", "top"))
     ax.annotate(f"{NAMES[n]}\n{eff[n]['size_mb']:.0f} MB · {eff[n]['params'] / 1e6:.1f}M params"
                 if eff[n]["params"] else NAMES[n], (x, y), xytext=off, textcoords="offset points",
                 fontsize=8.5, color=INK, ha=ha, va=va)
@@ -79,18 +81,21 @@ ax.set_title("Quality vs. latency", color=INK, loc="left")
 fig.savefig(FIG / "efficiency.png"); plt.close(fig)
 
 # 4. RL curves -----------------------------------------------------------------------------
-fig, axes = plt.subplots(1, 2, figsize=(11, 3.4))
-h = load_json(rpath("results/train_log_rl.json"))["history"]
-axes[0].plot(h["step"], h["val_setf1"], color=GRAY, lw=2, marker="o", ms=3)
-axes[0].set_title("Transformer (scratch): val Set-F1 during RL", color=INK, loc="left")
-lg = rpath("results/train_log_roberta.json")
-if lg.exists():
-    r = load_json(lg)["rl"]
-    axes[1].plot([e["step"] for e in r], [e["SetF1"] for e in r], color=BLUE, lw=2, marker="o", ms=3)
-    axes[1].set_title("RoBERTa: val Set-F1 during RL", color=INK, loc="left")
-for ax in axes:
+panels = [("PyTorch Transformer (scratch)", load_json(rpath("results/train_log_rl.json"))["history"]["step"],
+           load_json(rpath("results/train_log_rl.json"))["history"]["val_setf1"], GRAY)]
+if rpath("results/train_log_keras.json").exists():
+    hk = load_json(rpath("results/train_log_keras.json"))["rl_history"]
+    panels.append(("Keras Transformer (TensorFlow)", hk["step"], hk["val_setf1"], ORANGE))
+if rpath("results/train_log_roberta.json").exists():
+    r = load_json(rpath("results/train_log_roberta.json"))["rl"]
+    panels.append(("RoBERTa (PyTorch)", [e["step"] for e in r], [e["SetF1"] for e in r], BLUE))
+fig, axes = plt.subplots(1, len(panels), figsize=(5 * len(panels), 3.3))
+for ax, (title, xs, ys, c) in zip(np.atleast_1d(axes), panels):
+    ax.plot(xs, ys, color=c, lw=2, marker="o", ms=3)
+    ax.set_title(f"{title}", color=INK, loc="left", fontsize=10)
     ax.set_xlabel("RL update step"); ax.grid(color="#ecebe7", lw=0.8); ax.set_axisbelow(True)
-axes[0].set_ylabel("Validation Set-F1 (p ≥ 0.5)")
+np.atleast_1d(axes)[0].set_ylabel("Validation Set-F1 (p ≥ 0.5)")
+fig.suptitle("Validation Set-F1 during RL fine-tuning", color=INK, x=0.01, ha="left", y=1.04)
 fig.savefig(FIG / "rl_curve.png"); plt.close(fig)
 
 # 5. per category -------------------------------------------------------------------------

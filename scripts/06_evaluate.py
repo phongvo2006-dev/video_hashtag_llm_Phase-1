@@ -33,7 +33,7 @@ CATS = set(labels.category_tags)
 
 gpath = rpath(cfg["data"]["processed_dir"]) / "test_gains.json"
 if not gpath.exists():
-    json.dump(data.other_caption_gains(vte, meta["term_map"], labels.category_tags), open(gpath, "w"))
+    json.dump(data.other_caption_gains(vte, meta["gerunds"], labels.category_tags), open(gpath, "w"))
 gains = json.load(open(gpath))
 
 # 'clean' test: drop clips whose input caption appears verbatim among training captions
@@ -43,8 +43,10 @@ clean = [i for i, v in enumerate(vte) if v.eval_caption.lower().strip() not in t
 NAMES = {"keyword": "Keyword rules (no learning)", "tfidf_lr": "TF-IDF + LogReg",
          "transformer_bce": "Transformer from scratch (BCE)", "transformer_rl": "Transformer from scratch + RL",
          "roberta_bce": "RoBERTa-base fine-tuned (BCE)", "roberta_rl": "RoBERTa-base fine-tuned + RL",
+         "keras_bce": "Keras Transformer (BCE)", "keras_rl": "Keras Transformer + RL",
          "llm_zero_shot": "LLM zero-shot", "llm_hybrid": "Transformer+RL → LLM rerank"}
-MODELS = [n for n in ["keyword", "tfidf_lr", "transformer_bce", "transformer_rl", "roberta_bce", "roberta_rl"]
+MODELS = [n for n in ["keyword", "tfidf_lr", "transformer_bce", "transformer_rl", "keras_bce", "keras_rl",
+                      "roberta_bce", "roberta_rl"]
           if rpath(f"results/preds/{n}_test.npy").exists()]
 P = {n: (np.load(rpath(f"results/preds/{n}_test.npy")), np.load(rpath(f"results/preds/{n}_val.npy")))
      for n in MODELS}
@@ -136,6 +138,13 @@ if "roberta_rl" in MODELS:
         per_ex("wnDCG", top_cache["roberta_bce"], ALL))
 add("Transformer+RL vs Transformer-BCE (Set-F1)", per_ex("f1", set_cache["transformer_rl"], ALL),
     per_ex("f1", set_cache["transformer_bce"], ALL))
+if "keras_rl" in MODELS:
+    add("Keras+RL vs Keras-BCE (Set-F1)", per_ex("f1", set_cache["keras_rl"], ALL),
+        per_ex("f1", set_cache["keras_bce"], ALL))
+    add("Keras (TensorFlow)+RL vs PyTorch Transformer+RL (wnDCG@5)", per_ex("wnDCG", top_cache["keras_rl"], ALL),
+        per_ex("wnDCG", top_cache["transformer_rl"], ALL))
+    add("Keras (TensorFlow)+RL vs PyTorch Transformer+RL (Set-F1)", per_ex("f1", set_cache["keras_rl"], ALL),
+        per_ex("f1", set_cache["transformer_rl"], ALL))
 if "llm_hybrid" in llm_preds:
     rl_sub = [top_cache["transformer_rl"][i] for i in sub]
     for metric in ["wnDCG", "f1"]:
@@ -172,33 +181,61 @@ def bench(fn, n_single=100, batch=256):
 
 ck = rpath("checkpoints")
 mb = lambda p: os.path.getsize(p) / 2**20 if os.path.exists(p) else float("nan")  # noqa: E731
+PREV = load_json(rpath("results/metrics.json")).get("efficiency", {}) if rpath("results/metrics.json").exists() else {}
 eff = {}
+
+
+def carry(n):
+    """Checkpoint not on disk (large / not committed): keep the measurement from the previous run."""
+    if n in PREV:
+        eff[n] = {**PREV[n], "carried_over": True}
+
+
 from hashtagger.models.keyword import KeywordTagger  # noqa: E402
 from hashtagger.models.tfidf_linear import TfidfLinear  # noqa: E402
 from hashtagger.models import transformer as T  # noqa: E402
 
-kw = KeywordTagger(labels, meta["term_map"], np.load(ck / "keyword_prior.npy"))
+kw = KeywordTagger(labels, meta["gerunds"], np.load(ck / "keyword_prior.npy"))
 eff["keyword"] = {**bench(kw.scores), "size_mb": 0.0, "params": 0, "train_sec": 0.0}
-tf = TfidfLinear.load(str(ck / "tfidf_lr.pkl"))
+tfidf = TfidfLinear.load(str(ck / "tfidf_lr.pkl"))
 lb = load_json(rpath("results/train_log_baselines.json"))["tfidf_lr"]
-eff["tfidf_lr"] = {**bench(tf.predict_proba), "size_mb": mb(ck / "tfidf_lr.pkl"), "params": lb["params"],
+eff["tfidf_lr"] = {**bench(tfidf.predict_proba), "size_mb": mb(ck / "tfidf_lr.pkl"), "params": lb["params"],
                    "train_sec": lb["train_sec"]}
 lt, lr_ = load_json(rpath("results/train_log_transformer.json")), load_json(rpath("results/train_log_rl.json"))
 for n, tr in [("transformer_bce", lt["train_sec"]), ("transformer_rl", lt["train_sec"] + lr_["train_sec"])]:
+    if not (ck / f"{n}.pt").exists():
+        carry(n)
+        continue
     mdl, tok, _ = T.load(str(ck / f"{n}.pt"))
     eff[n] = {**bench(lambda c, mdl=mdl, tok=tok: T.predict_proba(mdl, tok.encode(c, mdl.cfg["max_len"]))),
               "size_mb": mb(ck / f"{n}.pt"), "params": mdl.n_params(), "train_sec": tr}
+if "keras_rl" in MODELS and (ck / "keras_rl.keras").exists():
+    import keras  # noqa: E402
+    import tensorflow as tfl  # noqa: E402
+    from hashtagger.models import keras_transformer  # noqa: E402,F401  (registers custom layers)
+    tfl.config.threading.set_intra_op_parallelism_threads(int(os.environ.get("BENCH_THREADS", "1")))
+    km = keras.models.load_model(ck / "keras_rl.keras")
+    kfn = tfl.function(lambda x: km(x), input_signature=[tfl.TensorSpec([None], tfl.string)])
+    lk = load_json(rpath("results/train_log_keras.json"))
+    b = bench(lambda c: kfn(tfl.constant(c)).numpy())
+    eff["keras_bce"] = {**b, "size_mb": mb(ck / "keras_bce.keras"), "params": lk["params"],
+                        "train_sec": lk["bce_train_sec"]}
+    eff["keras_rl"] = {**b, "size_mb": mb(ck / "keras_rl.keras"), "params": lk["params"],
+                       "train_sec": lk["bce_train_sec"] + lk["rl_train_sec"]}
 if "roberta_rl" in MODELS:
-    from hashtagger.models.pretrained import RobertaTagger, predict_proba as rp  # noqa: E402
-    lg = load_json(rpath("results/train_log_roberta.json"))
-    rob = RobertaTagger(len(labels), cfg["roberta"]["source"])
-    rob.load_state_dict(torch.load(ck / "roberta_rl.pt"))
-    fn = lambda c: rp(rob, rob.backbone.encode_text(c, cfg["roberta"]["max_len"]), 64)  # noqa: E731
-    b = bench(fn, n_single=50, batch=128)
-    eff["roberta_bce"] = {**b, "size_mb": mb(ck / "roberta_bce.pt"), "params": lg["params"],
-                          "train_sec": lg["bce_train_sec"]}
-    eff["roberta_rl"] = {**b, "size_mb": mb(ck / "roberta_rl.pt"), "params": lg["params"],
-                         "train_sec": lg["bce_train_sec"] + lg["rl_train_sec"]}
+    if (ck / "roberta_rl.pt").exists():
+        from hashtagger.models.pretrained import RobertaTagger, predict_proba as rp  # noqa: E402
+        lg = load_json(rpath("results/train_log_roberta.json"))
+        rob = RobertaTagger(len(labels), cfg["roberta"]["source"])
+        rob.load_state_dict(torch.load(ck / "roberta_rl.pt"))
+        fn = lambda c: rp(rob, rob.backbone.encode_text(c, cfg["roberta"]["max_len"]), 64)  # noqa: E731
+        b = bench(fn, n_single=50, batch=128)
+        eff["roberta_bce"] = {**b, "size_mb": mb(ck / "roberta_bce.pt"), "params": lg["params"],
+                              "train_sec": lg["bce_train_sec"]}
+        eff["roberta_rl"] = {**b, "size_mb": mb(ck / "roberta_rl.pt"), "params": lg["params"],
+                             "train_sec": lg["bce_train_sec"] + lg["rl_train_sec"]}
+    else:
+        carry("roberta_bce"); carry("roberta_rl")
 for stage in ["zero_shot", "hybrid"]:
     f = rpath(f"results/llm_{stage}_usage.json")
     if f.exists():
@@ -229,12 +266,14 @@ md = [f"### Test set — {len(vte):,} clips, one caption each (primary metric: w
                  "yes" if v["ci95"][0] > 0 or v["ci95"][1] < 0 else "no"] for k, v in sig.items()],
                ["Comparison", "Δ", "95% CI", "Significant"], tablefmt="github"),
       "\n\n### Efficiency — CPU, 1 thread\n",
-      tabulate([[NAMES[n], f"{e['latency_ms_p50']:.2f}", f"{e['latency_ms_p95']:.2f}",
+      tabulate([[NAMES[n] + (" †" if e.get("carried_over") else ""), f"{e['latency_ms_p50']:.2f}",
+                 f"{e['latency_ms_p95']:.2f}",
                  f"{e['throughput_per_sec']:,.0f}", f"{e['size_mb']:.0f}",
                  f"{e['params'] / 1e6:.1f}M" if e["params"] else "–", f"{e['train_sec'] / 60:.1f}"]
-                for n, e in eff.items() if not n.startswith("llm")],
+                for n, e in eff.items() if not n.startswith("llm") and "latency_ms_p50" in e],
                ["Model", "Latency p50 (ms)", "p95 (ms)", "Throughput (captions/s)", "Size (MB)", "Params",
                 "Train (min, 2 vCPU)"], tablefmt="github"),
+      "\n† measured in an earlier run of this pipeline; the checkpoint is not kept on disk (size / not committed).",
       "\n\n### LLM cost per clip (tokens estimated at ~4 chars/token)\n",
       tabulate([[NAMES[n], f"{e['mean_in_tokens']:.0f}", f"{e['mean_out_tokens']:.0f}", e["calls"]]
                 for n, e in eff.items() if n.startswith("llm")], ["Stage", "Input tokens", "Output tokens", "Calls"],

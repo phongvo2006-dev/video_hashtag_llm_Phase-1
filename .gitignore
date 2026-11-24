@@ -13,3 +13,4 @@ checkpoints/roberta_*.pt
 checkpoints/roberta_*.tmp
 checkpoints/*.tmp
 data/processed/test_gains.json
+checkpoints/keras_bce.keras

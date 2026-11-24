@@ -43,11 +43,10 @@ def build_labels(videos: list[Video], category_tags: dict[int, str], min_votes: 
     mention it; the clip's category adds one category hashtag. A model only sees
     ONE caption at test time, so it has to infer tags the other 19 people saw.
     """
-    # TensorFlow text pipeline: vocabulary + plural->singular table learned on TRAINING captions only
-    train_caps = [c for v in videos if v.split == "train" for c in v.captions]
-    term_map = text.learn_term_map(text.learn_vocabulary(train_caps))
-    extractor = text.TermExtractor(term_map)
-    all_terms = extractor.terms([c for v in videos for c in v.captions])
+    text.ensure_nltk()
+    all_caps = [c for v in videos for c in v.captions]
+    tagged = text.tag_sents([text.tokenize(c) for c in all_caps])
+    gerunds = text.learn_gerunds(tagged)
 
     # votes per video
     votes: dict[str, Counter] = {}
@@ -55,7 +54,7 @@ def build_labels(videos: list[Video], category_tags: dict[int, str], min_votes: 
     for v in videos:
         cnt: Counter = Counter()
         for _ in v.captions:
-            cnt.update(all_terms[i])
+            cnt.update(text.candidate_terms(tagged[i], gerunds))
             i += 1
         votes[v.video_id] = cnt
 
@@ -77,7 +76,7 @@ def build_labels(videos: list[Video], category_tags: dict[int, str], min_votes: 
         topics = [t for t, n in votes[v.video_id].most_common() if n >= min_votes and t in topic_set]
         v.tags = sorted(set(topics) | {category_tags[v.category]})
         v.eval_caption = rng.choice(v.captions)
-    return {"vocab": vocab, "category_tags": cat_vocab, "term_map": term_map}
+    return {"vocab": vocab, "category_tags": cat_vocab, "gerunds": gerunds}
 
 
 def save_processed(videos: list[Video], meta: dict, out_dir: str) -> None:
@@ -112,16 +111,16 @@ def eval_examples(videos: list[Video], split: str) -> tuple[list[str], list[list
     return [v.eval_caption for v in vs], [v.tags for v in vs], vs
 
 
-def other_caption_gains(videos: list[Video], term_map: dict[str, str], category_tags: list[str]) -> list[dict]:
+def other_caption_gains(videos: list[Video], gerunds: dict[str, str], category_tags: list[str]) -> list[dict]:
     """Graded relevance per gold tag = share of the clip's OTHER captions (input caption excluded)
     that mention it. The category tag gets gain 1.0."""
-    extractor = text.TermExtractor(term_map)
+    text.ensure_nltk()
     out = []
     for v in videos:
         others = [c for c in v.captions if c != v.eval_caption] or v.captions
         cnt: Counter = Counter()
-        for terms in extractor.terms(others):
-            cnt.update(terms)
+        for s in text.tag_sents([text.tokenize(c) for c in others]):
+            cnt.update(text.candidate_terms(s, gerunds))
         g = {t: cnt.get(t, 0) / len(others) for t in v.tags if t not in category_tags}
         g[category_tags[v.category]] = 1.0
         out.append(g)

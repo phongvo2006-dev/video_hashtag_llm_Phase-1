@@ -44,6 +44,9 @@ class Hashtagger:
         return h
 
     def proba(self, captions: list[str]) -> np.ndarray:
+        if getattr(self, "kind", "") == "keras":                       # Keras model takes raw strings
+            import tensorflow as tf
+            return np.asarray(self.model(tf.constant(captions)))
         if self.tok is None:                                            # RoBERTa
             from .models.pretrained import predict_proba
             return predict_proba(self.model, self.model.backbone.encode_text(captions, self.max_len))

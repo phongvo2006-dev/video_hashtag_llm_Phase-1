@@ -20,16 +20,16 @@
     "raw": [
       "animals",
       "cat",
+      "washing",
       "toy",
-      "plastic",
-      "water"
+      "plastic"
     ],
     "hashtags": [
       "animals",
       "cat",
+      "washing",
       "toy",
-      "plastic",
-      "water"
+      "plastic"
     ],
     "creative": []
   },
@@ -105,14 +105,14 @@
       "ads",
       "product",
       "review",
-      "howto",
-      "demonstrating"
+      "reviewing",
+      "howto"
     ],
     "hashtags": [
       "ads",
       "product",
       "review",
-      "demonstrating"
+      "reviewing"
     ],
     "creative": []
   },
@@ -186,15 +186,14 @@
       "sports",
       "ball",
       "player",
-      "game",
-      "catch"
+      "playing",
+      "game"
     ],
     "hashtags": [
       "sports",
       "ball",
       "player",
-      "game",
-      "catch"
+      "game"
     ],
     "creative": []
   },
@@ -335,15 +334,14 @@
       "howto",
       "craft",
       "explaining",
-      "demonstrating",
-      "tutorial"
+      "making",
+      "demonstrating"
     ],
     "hashtags": [
       "howto",
       "craft",
       "explaining",
-      "demonstrating",
-      "tutorial"
+      "demonstrating"
     ],
     "creative": []
   },
@@ -418,15 +416,16 @@
   "video7306": {
     "raw": [
       "people",
+      "cleaning",
       "eating",
       "school",
-      "eat"
+      "movies"
     ],
     "hashtags": [
       "people",
+      "cleaning",
       "eating",
-      "school",
-      "eat"
+      "school"
     ],
     "creative": []
   },
@@ -436,14 +435,13 @@
       "game",
       "gameplay",
       "character",
-      "computer"
+      "video"
     ],
     "hashtags": [
       "gaming",
       "game",
       "gameplay",
-      "character",
-      "computer"
+      "character"
     ],
     "creative": []
   },
@@ -484,14 +482,13 @@
       "minecraft",
       "gameplay",
       "game",
-      "computer"
+      "playing"
     ],
     "hashtags": [
       "gaming",
       "minecraft",
       "gameplay",
-      "game",
-      "computer"
+      "game"
     ],
     "creative": []
   },
@@ -501,13 +498,14 @@
       "road",
       "street",
       "city",
-      "travel"
+      "traveling"
     ],
     "hashtags": [
       "people",
       "road",
       "street",
-      "city"
+      "city",
+      "traveling"
     ],
     "creative": []
   },
@@ -714,15 +712,14 @@
       "music",
       "guitar",
       "instrument",
-      "performing",
-      "song"
+      "playing",
+      "performing"
     ],
     "hashtags": [
       "music",
       "guitar",
       "instrument",
-      "performing",
-      "song"
+      "performing"
     ],
     "creative": []
   },
@@ -730,16 +727,14 @@
     "raw": [
       "family",
       "child",
-      "children",
-      "style",
-      "park"
+      "running",
+      "people",
+      "style"
     ],
     "hashtags": [
       "family",
       "child",
-      "children",
-      "style",
-      "park"
+      "style"
     ],
     "creative": []
   },
@@ -897,15 +892,13 @@
       "people",
       "hugging",
       "friend",
-      "couple",
-      "love"
+      "family",
+      "girl"
     ],
     "hashtags": [
       "people",
       "hugging",
-      "friend",
-      "couple",
-      "love"
+      "friend"
     ],
     "creative": []
   },
@@ -949,14 +942,14 @@
       "art",
       "judge",
       "competition",
-      "paint"
+      "painting"
     ],
     "hashtags": [
       "education",
       "art",
       "judge",
       "competition",
-      "paint"
+      "painting"
     ],
     "creative": []
   },
@@ -1097,15 +1090,13 @@
       "animals",
       "horse",
       "animal",
-      "field",
-      "nature"
+      "comparison",
+      "outdoor"
     ],
     "hashtags": [
       "animals",
       "horse",
-      "animal",
-      "field",
-      "nature"
+      "animal"
     ],
     "creative": []
   },
@@ -1147,15 +1138,13 @@
       "people",
       "road",
       "street",
-      "dress",
-      "fashion"
+      "girl",
+      "travel"
     ],
     "hashtags": [
       "people",
       "road",
-      "street",
-      "dress",
-      "fashion"
+      "street"
     ],
     "creative": []
   },
@@ -1265,16 +1254,15 @@
     "raw": [
       "animation",
       "cartoon",
+      "kicking",
       "character",
-      "animated",
-      "fight"
+      "movies"
     ],
     "hashtags": [
       "animation",
       "cartoon",
-      "character",
-      "animated",
-      "fight"
+      "kicking",
+      "character"
     ],
     "creative": []
   },
@@ -1298,17 +1286,16 @@
   "video8047": {
     "raw": [
       "people",
+      "talking",
       "crowd",
       "street",
-      "city",
-      "conversation"
+      "city"
     ],
     "hashtags": [
       "people",
       "crowd",
       "street",
-      "city",
-      "conversation"
+      "city"
     ],
     "creative": []
   },
@@ -1349,16 +1336,16 @@
     "raw": [
       "news",
       "anchor",
+      "reporting",
       "shooting",
-      "church",
-      "report"
+      "church"
     ],
     "hashtags": [
       "news",
       "anchor",
+      "reporting",
       "shooting",
-      "church",
-      "report"
+      "church"
     ],
     "creative": []
   },
@@ -1383,16 +1370,16 @@
     "raw": [
       "howto",
       "house",
+      "home",
       "fixing",
-      "building",
-      "wood"
+      "building"
     ],
     "hashtags": [
       "howto",
       "house",
+      "home",
       "fixing",
-      "building",
-      "wood"
+      "building"
     ],
     "creative": []
   },
@@ -1418,15 +1405,14 @@
       "howto",
       "technology",
       "explaining",
-      "demonstrating",
-      "tutorial"
+      "camera",
+      "demonstrating"
     ],
     "hashtags": [
       "howto",
       "technology",
       "explaining",
-      "demonstrating",
-      "tutorial"
+      "demonstrating"
     ],
     "creative": []
   },
@@ -1548,12 +1534,14 @@
   "video8319": {
     "raw": [
       "people",
+      "sits",
       "hair",
       "conversation",
       "interview"
     ],
     "hashtags": [
       "people",
+      "sits",
       "hair",
       "conversation",
       "interview"
@@ -1565,15 +1553,13 @@
       "animals",
       "horse",
       "animal",
-      "field",
-      "nature"
+      "outdoor",
+      "comparison"
     ],
     "hashtags": [
       "animals",
       "horse",
-      "animal",
-      "field",
-      "nature"
+      "animal"
     ],
     "creative": []
   },
@@ -1600,14 +1586,14 @@
       "conversation",
       "mother",
       "child",
-      "love"
+      "home"
     ],
     "hashtags": [
       "family",
       "conversation",
       "mother",
       "child",
-      "love"
+      "home"
     ],
     "creative": []
   },
@@ -1631,17 +1617,17 @@
   "video8408": {
     "raw": [
       "education",
-      "paint",
+      "painting",
       "art",
       "drawing",
-      "draw"
+      "paint"
     ],
     "hashtags": [
       "education",
-      "paint",
+      "painting",
       "art",
       "drawing",
-      "draw"
+      "paint"
     ],
     "creative": []
   },
@@ -1748,15 +1734,16 @@
   "video8522": {
     "raw": [
       "people",
+      "family",
       "friend",
-      "party",
-      "photo"
+      "home",
+      "party"
     ],
     "hashtags": [
       "people",
       "friend",
-      "party",
-      "photo"
+      "home",
+      "party"
     ],
     "creative": []
   },
@@ -1765,15 +1752,13 @@
       "food",
       "cutting",
       "knife",
-      "cut",
-      "plate"
+      "fruit",
+      "cooking"
     ],
     "hashtags": [
       "food",
       "cutting",
-      "knife",
-      "cut",
-      "plate"
+      "knife"
     ],
     "creative": []
   },
@@ -1890,8 +1875,7 @@
       "people",
       "discussing",
       "grass",
-      "tree",
-      "nature"
+      "tree"
     ],
     "creative": []
   },
@@ -2002,14 +1986,13 @@
       "trailer",
       "film",
       "actor",
-      "street"
+      "magic"
     ],
     "hashtags": [
       "movies",
       "trailer",
       "film",
-      "actor",
-      "street"
+      "actor"
     ],
     "creative": []
   },
@@ -2018,13 +2001,13 @@
       "education",
       "school",
       "student",
-      "building"
+      "people",
+      "campus"
     ],
     "hashtags": [
       "education",
       "school",
-      "student",
-      "building"
+      "student"
     ],
     "creative": []
   },
@@ -2049,16 +2032,15 @@
     "raw": [
       "music",
       "guitar",
+      "playing",
       "instrument",
-      "song",
-      "singing"
+      "song"
     ],
     "hashtags": [
       "music",
       "guitar",
       "instrument",
-      "song",
-      "singing"
+      "song"
     ],
     "creative": []
   },
@@ -2132,16 +2114,15 @@
     "raw": [
       "family",
       "conversation",
-      "mother",
-      "father",
-      "children"
+      "home",
+      "people",
+      "mother"
     ],
     "hashtags": [
       "family",
       "conversation",
-      "mother",
-      "father",
-      "children"
+      "home",
+      "mother"
     ],
     "creative": []
   },
@@ -2283,17 +2264,17 @@
   "video9028": {
     "raw": [
       "news",
+      "reporting",
       "reporter",
       "anchor",
-      "president",
-      "report"
+      "president"
     ],
     "hashtags": [
       "news",
+      "reporting",
       "reporter",
       "anchor",
-      "president",
-      "report"
+      "president"
     ],
     "creative": []
   },
@@ -2337,14 +2318,13 @@
       "race",
       "track",
       "athlete",
-      "racing"
+      "running"
     ],
     "hashtags": [
       "sports",
       "race",
       "track",
-      "athlete",
-      "racing"
+      "athlete"
     ],
     "creative": []
   },
@@ -2386,16 +2366,14 @@
     "raw": [
       "people",
       "grass",
-      "field",
-      "tshirt",
-      "park"
+      "running",
+      "girl",
+      "field"
     ],
     "hashtags": [
       "people",
       "grass",
-      "field",
-      "tshirt",
-      "park"
+      "field"
     ],
     "creative": []
   },
@@ -2428,7 +2406,6 @@
       "people",
       "character",
       "posing",
-      "costume",
       "party"
     ],
     "creative": []
@@ -2506,14 +2483,14 @@
       "paint",
       "style",
       "makeup",
-      "art"
+      "painting"
     ],
     "hashtags": [
       "beauty",
       "paint",
       "style",
       "makeup",
-      "art"
+      "painting"
     ],
     "creative": []
   },
@@ -2521,29 +2498,28 @@
     "raw": [
       "people",
       "office",
+      "working",
       "building",
-      "tshirt"
+      "work"
     ],
     "hashtags": [
       "people",
       "office",
-      "building",
-      "tshirt"
+      "building"
     ],
     "creative": []
   },
   "video9278": {
     "raw": [
       "people",
-      "actor",
-      "movie",
-      "smiling"
+      "woman",
+      "movies",
+      "face",
+      "actor"
     ],
     "hashtags": [
       "people",
-      "actor",
-      "movie",
-      "smiling"
+      "actor"
     ],
     "creative": []
   },
@@ -2569,15 +2545,13 @@
       "people",
       "conversation",
       "interview",
-      "baseball",
-      "street"
+      "hat",
+      "sports"
     ],
     "hashtags": [
       "people",
       "conversation",
-      "interview",
-      "baseball",
-      "street"
+      "interview"
     ],
     "creative": []
   },
@@ -2604,14 +2578,13 @@
       "talent",
       "judge",
       "competition",
-      "stage"
+      "show"
     ],
     "hashtags": [
       "family",
       "talent",
       "judge",
-      "competition",
-      "stage"
+      "competition"
     ],
     "creative": []
   },
@@ -2619,16 +2592,15 @@
     "raw": [
       "ads",
       "channel",
-      "subscribe",
-      "trailer",
-      "website"
+      "subscribing",
+      "video",
+      "trailer"
     ],
     "hashtags": [
       "ads",
       "channel",
-      "subscribe",
-      "trailer",
-      "website"
+      "subscribing",
+      "trailer"
     ],
     "creative": []
   },
@@ -2636,16 +2608,15 @@
     "raw": [
       "gaming",
       "game",
+      "playing",
       "gameplay",
-      "computer",
-      "character"
+      "computer"
     ],
     "hashtags": [
       "gaming",
       "game",
       "gameplay",
-      "computer",
-      "character"
+      "computer"
     ],
     "creative": []
   },
@@ -2670,12 +2641,14 @@
     "raw": [
       "animals",
       "pet",
+      "washing",
       "water",
       "baby"
     ],
     "hashtags": [
       "animals",
       "pet",
+      "washing",
       "water",
       "baby"
     ],
@@ -2685,16 +2658,16 @@
     "raw": [
       "movies",
       "fight",
+      "attacking",
       "house",
-      "fighting",
-      "movie"
+      "fighting"
     ],
     "hashtags": [
       "movies",
       "fight",
+      "attacking",
       "house",
-      "fighting",
-      "movie"
+      "fighting"
     ],
     "creative": []
   },
@@ -2737,15 +2710,14 @@
       "people",
       "drink",
       "drinking",
-      "explaining",
-      "bar"
+      "glass",
+      "explaining"
     ],
     "hashtags": [
       "people",
       "drink",
       "drinking",
-      "explaining",
-      "bar"
+      "explaining"
     ],
     "creative": []
   },
@@ -2770,16 +2742,14 @@
     "raw": [
       "cooking",
       "soup",
-      "recipe",
-      "bowl",
-      "preparing"
+      "food",
+      "cup",
+      "recipe"
     ],
     "hashtags": [
       "cooking",
       "soup",
-      "recipe",
-      "bowl",
-      "preparing"
+      "recipe"
     ],
     "creative": []
   },
@@ -2822,13 +2792,14 @@
       "animation",
       "cartoon",
       "character",
-      "animated"
+      "animating",
+      "face"
     ],
     "hashtags": [
       "animation",
       "cartoon",
       "character",
-      "animated"
+      "animating"
     ],
     "creative": []
   },
@@ -2921,6 +2892,7 @@
       "gaming",
       "game",
       "gameplay",
+      "playing",
       "computer"
     ],
     "hashtags": [
@@ -2987,31 +2959,30 @@
       "cartoon",
       "character",
       "animal",
-      "animated"
+      "animating"
     ],
     "hashtags": [
       "animation",
       "cartoon",
       "character",
       "animal",
-      "animated"
+      "animating"
     ],
     "creative": []
   },
   "video9645": {
     "raw": [
       "sports",
+      "running",
       "exercise",
       "athlete",
-      "track",
-      "race"
+      "track"
     ],
     "hashtags": [
       "sports",
       "exercise",
       "athlete",
-      "track",
-      "race"
+      "track"
     ],
     "creative": []
   },
@@ -3054,14 +3025,13 @@
       "phone",
       "cell",
       "technology",
-      "mobile"
+      "texting"
     ],
     "hashtags": [
       "scitech",
       "phone",
       "cell",
-      "technology",
-      "mobile"
+      "technology"
     ],
     "creative": []
   },
@@ -3070,15 +3040,15 @@
       "news",
       "anchor",
       "interview",
-      "reporter",
-      "report"
+      "reporting",
+      "reporter"
     ],
     "hashtags": [
       "news",
       "anchor",
       "interview",
-      "reporter",
-      "report"
+      "reporting",
+      "reporter"
     ],
     "creative": []
   },
@@ -3101,15 +3071,15 @@
   "video9751": {
     "raw": [
       "people",
+      "talking",
       "explaining",
-      "review",
-      "conversation"
+      "glass",
+      "review"
     ],
     "hashtags": [
       "people",
       "explaining",
-      "review",
-      "conversation"
+      "review"
     ],
     "creative": []
   },
@@ -3168,12 +3138,14 @@
       "people",
       "conversation",
       "friend",
+      "sits",
       "discussing"
     ],
     "hashtags": [
       "people",
       "conversation",
       "friend",
+      "sits",
       "discussing"
     ],
     "creative": []
@@ -3184,14 +3156,13 @@
       "actor",
       "conversation",
       "film",
-      "movie"
+      "drama"
     ],
     "hashtags": [
       "movies",
       "actor",
       "conversation",
-      "film",
-      "movie"
+      "film"
     ],
     "creative": []
   },
@@ -3216,14 +3187,14 @@
     "raw": [
       "family",
       "couple",
-      "love",
-      "kiss"
+      "home",
+      "people",
+      "living"
     ],
     "hashtags": [
       "family",
       "couple",
-      "love",
-      "kiss"
+      "home"
     ],
     "creative": []
   },
@@ -3232,15 +3203,15 @@
       "news",
       "clinton",
       "president",
-      "speech",
-      "crowd"
+      "reporting",
+      "speech"
     ],
     "hashtags": [
       "news",
       "clinton",
       "president",
-      "speech",
-      "crowd"
+      "reporting",
+      "speech"
     ],
     "creative": []
   },
@@ -3263,15 +3234,15 @@
   "video9886": {
     "raw": [
       "people",
+      "woman",
+      "standing",
       "style",
-      "posing",
-      "fashion"
+      "posing"
     ],
     "hashtags": [
       "people",
       "style",
-      "posing",
-      "fashion"
+      "posing"
     ],
     "creative": []
   },
@@ -3312,6 +3283,7 @@
     "raw": [
       "music",
       "guitar",
+      "playing",
       "instrument",
       "rock"
     ],

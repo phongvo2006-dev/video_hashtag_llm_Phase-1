@@ -1,8 +1,8 @@
 PY ?= python
 
-.PHONY: all data baselines transformer rl roberta llm eval figures test demo clean
+.PHONY: all data baselines transformer rl keras roberta llm eval figures test demo clean
 
-all: data baselines transformer rl roberta llm eval figures
+all: data baselines transformer rl keras roberta llm eval figures
 
 data:            ## download MSR-VTT annotations + build hashtag labels
 	bash scripts/download_data.sh
@@ -16,6 +16,9 @@ transformer:     ## supervised (BCE) Transformer
 
 rl:              ## REINFORCE/RLOO fine-tuning on set-F1 reward
 	$(PY) scripts/04_rl_finetune.py
+
+keras:           ## the same Transformer + RL in TensorFlow/Keras
+	$(PY) scripts/09_train_keras.py
 
 roberta:         ## fine-tune pretrained RoBERTa-base (BCE + RL); add RESUME=1 to continue an interrupted run
 	$(PY) scripts/08_finetune_roberta.py $(if $(RESUME),--resume,)

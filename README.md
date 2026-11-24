@@ -1,10 +1,10 @@
-# 🎬 Caption-to-Hashtag: TensorFlow text pipeline + RoBERTa + RL + LLM rerank for video hashtags
+# 🎬 Caption-to-Hashtag: RoBERTa + RL + LLM rerank for video hashtags, in PyTorch and TensorFlow
 
 **Given a one-sentence description of a video, generate the hashtags people would use for it, across 20 kinds of video (music, gaming, cooking, autos, news, beauty, ...).**
 
 An end-to-end, CPU-only project. It covers:
-- dataset choice, and weak-supervision labelling with a **TensorFlow text pipeline**;
-- five trained models, from keyword rules to a **fine-tuned pretrained RoBERTa-base**;
+- dataset choice and weak-supervision labelling;
+- trained models from keyword rules to a **fine-tuned pretrained RoBERTa-base**, with the core Transformer + RL model implemented **twice: in PyTorch and in TensorFlow/Keras**;
 - **reinforcement-learning fine-tuning on a set-level reward**;
 - an **LLM stage** that reranks a model's candidates;
 - a **leakage audit**, and a metric suite built for this data, with confidence intervals and an efficiency benchmark.
@@ -13,11 +13,9 @@ Every number below comes from scripts in this repo.
 
 ```text
 "a chef slices onions and fries them in a pan"            (RoBERTa + RL)
-  → #food  #kitchen  #onion  #chef  #dish  #vegetable  #pan
+  → #food  #onion  #kitchen  #dish  #preparing  #chef  #pan  #vegetable
 "a rock band is playing on stage"
-  → #band  #stage  #performing  #music  #singing  #song  #rock  #concert
-"two teams compete in a basketball game in front of a crowd"   (Transformer + RL, 1.3 ms)
-  → #sports  #game  #player  #basketball  #ball
+  → #band  #stage  #performing  #music  #singing  #song  #guitar  #rock
 ```
 
 ---
@@ -28,22 +26,22 @@ Test set: **2,990 clips**, one caption each. The primary metric is **wnDCG@5** (
 
 | Model | wnDCG@5 | Hit@5 | Set-F1 | Category top-1 / top-2 | Latency (CPU, 1 thread) | Size |
 |---|---|---|---|---|---|---|
-| Keyword rules (no learning) | 0.304 | 76.2% | 0.315 | 14.0% / 24.0% | 6.9 ms* | – |
-| TF-IDF + logistic regression | 0.499 | 83.8% | 0.380 | 49.1% / 62.1% | 0.5 ms | 45 MB |
-| Transformer from scratch (BCE) | 0.536 | 86.0% | 0.444 | 52.5% / 66.1% | 1.3 ms | 14 MB |
-| Transformer from scratch + RL | 0.552 | 85.8% | 0.468 | 52.0% / 65.9% | 1.3 ms | 14 MB |
-| RoBERTa-base fine-tuned (BCE) | 0.552 | **88.3%** | 0.471 | **54.7%** / **69.3%** | 77 ms | 474 MB |
-| **RoBERTa-base fine-tuned + RL** | **0.555** | 87.2% | **0.485** | 53.9% / 68.3% | 77 ms | 474 MB |
-
-\* The keyword baseline runs TensorFlow string ops eagerly, one caption per call, so its single-caption latency is dominated by framework overhead. Batched, it processes about 29k captions/s.
+| Keyword rules (no learning) | 0.302 | 76.2% | 0.321 | 14.1% / 24.2% | 0.2 ms | – |
+| TF-IDF + logistic regression | 0.501 | 84.2% | 0.383 | 49.1% / 62.1% | 0.6 ms | 43 MB |
+| Transformer from scratch (BCE, PyTorch) | 0.537 | 86.3% | 0.441 | 51.7% / 65.5% | 2.4 ms | 14 MB |
+| Transformer from scratch + RL (PyTorch) | 0.551 | 85.7% | 0.466 | 51.5% / 65.3% | 1.9 ms | 14 MB |
+| Keras Transformer (TensorFlow, BCE) | 0.531 | 85.3% | 0.447 | 52.1% / 65.3% | 2.3 ms | 14 MB |
+| Keras Transformer + RL (TensorFlow) | 0.547 | 85.7% | 0.472 | 52.6% / 65.1% | 2.3 ms | 14 MB |
+| RoBERTa-base fine-tuned (BCE) | 0.559 | **88.8%** | 0.472 | **54.7%** / 69.2% | 113 ms | 474 MB |
+| **RoBERTa-base fine-tuned + RL** | **0.565** | 88.2% | **0.489** | 54.6% / **69.4%** | 113 ms | 474 MB |
 
 **Takeaways**
-1. **Learning beats rules by a wide margin.** wnDCG@5 rises from 0.304 to 0.555 (+83%), and category accuracy from 14% to 54%: a caption rarely names its own category.
-2. **RL is the most consistent gain.** Policy-gradient fine-tuning on a set-F1 reward raises Set-F1 by **+0.024 [95% CI +0.019, +0.030]** on the from-scratch Transformer and by **+0.014 [+0.008, +0.019]** on RoBERTa. It mainly teaches the model *how many* tags to emit; ranking quality (wnDCG@5) moves little.
-3. **Pretraining helps, but RL closes most of the gap.** With BCE training, RoBERTa beats the from-scratch Transformer by +0.016 wnDCG@5 [+0.009, +0.024]. After RL on both, the gap in wnDCG@5 is not significant (+0.003 [−0.005, +0.010]). RoBERTa still wins on Set-F1 (+0.017 [+0.010, +0.024]) and category accuracy.
-4. **The practical choice is the small model.** Transformer + RL reaches 99% of RoBERTa + RL's wnDCG@5 at **1.3 ms vs 77 ms** per caption (about 60× faster) and 14 MB vs 474 MB. RoBERTa is the quality ceiling and a natural distillation teacher (§9).
-5. **No leakage found.** 0 test clips share a YouTube source with train/val. On a "clean" test without verbatim duplicate captions, every number holds (RoBERTa + RL: 0.555 → 0.556).
-6. **The LLM is not a silver bullet.** On a 200-clip subset, neither LLM zero-shot nor LLM rerank significantly beats the fine-tuned models. The rerank uses 3.5× fewer prompt tokens than zero-shot and adds world knowledge the encoders lack (*"… a narrator mentions syria"* → `#news #war`).
+1. **Pretraining is the largest single gain among learned models.** Fine-tuned RoBERTa-base beats the Transformer trained from scratch by **+0.022 wnDCG@5 [95% CI +0.014, +0.029]**, and lifts category accuracy by about 3 points. This is the industry-standard recipe for text tagging, and it holds here.
+2. **RL helps on every model.** Policy-gradient fine-tuning on a set-F1 reward adds **+0.025 Set-F1 [+0.019, +0.030]** to the PyTorch Transformer, **+0.025 [+0.020, +0.030]** to the Keras Transformer and **+0.017 [+0.011, +0.022]** to RoBERTa (plus +0.007 wnDCG@5 [+0.003, +0.011]).
+3. **The result does not depend on the framework.** The TensorFlow/Keras re-implementation (same architecture, 3.59M parameters, same hyper-parameters) matches the PyTorch model: wnDCG@5 −0.004 [−0.011, +0.004] and Set-F1 +0.006 [−0.000, +0.013], both not significant.
+4. **No leakage found.** 0 test clips share a YouTube source with train/val. On a "clean" test that removes the 11.6% of clips whose input caption appears verbatim in training, every number holds (RoBERTa + RL: 0.565 → 0.565).
+5. **The choice of metric changes conclusions about the LLM.** On a 200-clip subset, the LLM rerank looks better by F1@5 (+0.022, significant). By the agreement-weighted wnDCG@5 it is no better (−0.010, CI [−0.047, +0.027]), and **RoBERTa + RL beats it by +0.046 [+0.007, +0.085]**.
+6. **The cost is latency.** RoBERTa + RL beats the small Transformer + RL (+0.014 wnDCG@5 [+0.007, +0.021]), but is about 60× slower on one CPU thread (113 ms vs 2 ms). The natural next step is distilling it into the small model (§9).
 
 <p align="center"><img src="results/figures/quality_full_test.png" width="95%"></p>
 
@@ -53,7 +51,7 @@ Test set: **2,990 clips**, one caption each. The primary metric is **wnDCG@5** (
 
 Creators describe a video in one line. Platforms want **hashtags** for search, recommendation and reach. The difficulty is that **a caption doesn't spell out its hashtags**. "a man drives an audi through the countryside" should yield `#autos #car #driving #road`. A good tagger must infer the *category* and the *topic tags other viewers would use*, not just copy words.
 
-**Task formulation:** multi-label prediction over **387 hashtags** (including 20 category tags). Input: one caption. Output: either a ranked list or a set whose size the model chooses.
+**Task formulation:** multi-label prediction over 367 hashtags (including 20 category tags). Input: one caption. Output: either a ranked list or a set whose size the model chooses.
 
 ## 2. Dataset: why MSR-VTT
 
@@ -66,66 +64,71 @@ Creators describe a video in one line. Platforms want **hashtags** for search, r
 
 Split: the standard **6,513 train / 497 validation / 2,990 test** clips.
 
-### Labels from annotator consensus (weak supervision, TensorFlow text pipeline)
+### Labels from annotator consensus (weak supervision)
 
-MSR-VTT has no hashtags, so the labels are built in `src/hashtagger/data.py` and `src/hashtagger/text.py`:
+MSR-VTT has no hashtags, so the labels are built in `src/hashtagger/data.py`:
 
 1. **Category hashtag:** the clip's category becomes `#music`, `#gaming`, `#autos`, `#howto`, and so on. Category names are reserved for this use, so `#cooking` means *this is a cooking video*.
-2. **Topic hashtags.** Every caption is processed with TensorFlow:
-   - `tf.strings` standardises and tokenises it.
-   - Keras `TextVectorization` learns the corpus vocabulary from **training captions only**.
-   - A `tf.lookup.StaticHashTable` merges plurals into the singular (`cars` → `car`, `puppies` → `puppy`, `dishes` → `dish`). A plural is merged only when its singular is itself a corpus word, and an exception list protects words like `news` and `glass`.
-   - A second lookup table removes stop-words, generic words (`man`, `video`), visual-detail words (`shirt`, `chair`) and descriptive adjectives.
-   - A term becomes a **gold tag if ≥ 3 of the 20 annotators independently mention it**.
-3. The vocabulary is built from **training clips only**: 387 tags, about 4.1 gold tags per clip.
+2. **Topic hashtags:** each caption is POS-tagged and lemmatised. Nouns are made singular (`cars` → `car`) and verbs become their gerund (`sings` → `singing`). A term becomes a **gold tag if ≥ 3 of the 20 annotators independently mention it**. Generic words (`man`, `video`) and visual-detail words (`shirt`, `chair`) are filtered out.
+3. The vocabulary is built from **training clips only**. Clips average 4.1 gold tags.
 
-At test time the model sees **one** randomly chosen caption (fixed seed) and must predict the tags the **other** annotators agreed on. Only **33%** of the gold topic tags appear literally in that caption.
+At test time the model sees **one** randomly chosen caption (fixed seed) and must predict the tags the **other** annotators agreed on.
 
 ## 3. Pipeline
 
 ```mermaid
 flowchart LR
-    A[MSR-VTT annotations<br/>10k clips × 20 captions<br/>20 categories] --> B[01 prepare<br/>TensorFlow tokenise + normalise<br/>consensus ≥3/20 → gold tags]
+    A[MSR-VTT annotations<br/>10k clips × 20 captions<br/>20 categories] --> B[01 prepare<br/>POS + lemmatise<br/>consensus ≥3/20 → gold tags]
     B --> C0[02 Keyword rules]
     B --> C1[02 TF-IDF + LogReg]
     B --> C2[03 Transformer from scratch<br/>BCE, 3.6M params]
     C2 --> D[04 RL fine-tune<br/>REINFORCE + RLOO]
+    B --> K1[09 Keras Transformer<br/>TensorFlow, BCE]
+    K1 --> K2[09 RL fine-tune<br/>tf.GradientTape]
     B --> R1[08 RoBERTa-base pretrained<br/>fine-tune BCE, 124M params]
     R1 --> R2[08 RL fine-tune<br/>same reward]
     D --> E[Top-12 candidates]
     E --> F[05 LLM rerank]
     B --> G[05 LLM zero-shot]
-    C0 & C1 & C2 & D & R1 & R2 & F & G --> H[06 evaluate<br/>wnDCG@5 · Hit@5 · Set-F1 · category<br/>clean test · bootstrap CIs · latency]
+    C0 & C1 & C2 & D & K1 & K2 & R1 & R2 & F & G --> H[06 evaluate<br/>wnDCG@5 · Hit@5 · Set-F1 · category<br/>clean test · bootstrap CIs · latency]
     H --> I[07 figures]
 ```
 
 | Step | Script | Time (2 vCPU) |
 |---|---|---|
-| Build labels (TensorFlow) | `scripts/01_prepare_data.py` | 10 s |
+| Build labels | `scripts/01_prepare_data.py` | 40 s |
 | Baselines | `scripts/02_train_baselines.py` | 1.5 min |
 | Transformer from scratch (BCE) | `scripts/03_train_transformer.py` | 24 min |
 | RL on Transformer | `scripts/04_rl_finetune.py` | 8 min |
 | LLM stages | `scripts/05_llm_hashtags.py --stage zero_shot / hybrid` | cached |
 | Evaluate + benchmark | `scripts/06_evaluate.py` | 1 min |
 | Figures | `scripts/07_make_figures.py` | 3 s |
-| **RoBERTa-base fine-tune + RL** | `scripts/08_finetune_roberta.py [--resume]` | **61 + 8 min** |
+| **RoBERTa-base fine-tune + RL** | `scripts/08_finetune_roberta.py [--resume]` | **79 + 11 min** |
+| Transformer + RL in TensorFlow/Keras | `scripts/09_train_keras.py` | 24 + 8 min |
 
 ## 4. Models
 
-**0 · Keyword rules.** Hashtags are the vocabulary terms that literally appear in the caption (same TensorFlow term extractor as the labels), padded with the most popular tags. This is what a naive tool does.
+**0 · Keyword rules.** Hashtags are the vocabulary terms that literally appear in the caption, padded with the most popular tags. This is what a naive tool does.
 
 **1 · TF-IDF + logistic regression.** Word 1–2-gram TF-IDF (30k features) feeding one linear layer with sigmoid outputs. Trained with Adagrad, with output biases initialised to the label prior.
 
-**2 · Transformer from scratch.** Word tokenizer → 2-layer pre-LN encoder (d=192) → mean-pool → MLP → 387 logits. **3.6M parameters**, BCE, 6 epochs.
+**2 · Transformer from scratch (PyTorch).** Word tokenizer → 2-layer pre-LN encoder (d=192) → mean-pool → MLP → 367 logits. **3.6M parameters**, BCE, 6 epochs.
 
-**3 · RoBERTa-base, fine-tuned.** This is the standard industry choice for text tagging. Production systems typically fine-tune a pretrained BERT-family encoder (BERT, RoBERTa, DistilBERT) or a sentence-embedding model (MiniLM, E5, BGE) with a multi-label head.
+**2b · The same Transformer in TensorFlow/Keras** (`src/hashtagger/models/keras_transformer.py`, `scripts/09_train_keras.py`). The model is re-implemented layer for layer, with the same hyper-parameters, so the two frameworks can be compared like-for-like:
+- `keras.layers.TextVectorization` holds the word vocabulary (training captions only), so **the exported model takes raw caption strings** and can be served directly (TF Serving / TFLite).
+- Custom layers: token + positional embeddings, pre-LN encoder blocks built from `MultiHeadAttention`, masked mean-pooling, and an output bias initialised to the label prior.
+- Supervised stage: `model.fit` with BCE, AdamW, warm-up + cosine decay, gradient clipping.
+- RL stage: a custom **`tf.GradientTape`** training loop (compiled with `tf.function`) implementing REINFORCE + RLOO on the set-F1 reward.
+- Result: 3.59M parameters (PyTorch: 3.60M); the exported `.keras` file is 14 MB.
 
-- **Architecture:** byte-BPE → RoBERTa-base (12 layers, 768-d, **124M parameters**, pretrained on 160 GB of English text) → masked mean-pool → dropout → linear → 387 logits.
+**3 · RoBERTa-base, fine-tuned.** This is the standard industry choice for text tagging. Production systems typically fine-tune a pretrained BERT-family encoder (BERT, RoBERTa, DistilBERT) or a sentence-embedding model (MiniLM, E5, BGE) with a multi-label head. Fully multimodal video taggers add a vision encoder such as CLIP; see §9.
+
+- **Architecture:** byte-BPE → RoBERTa-base (12 layers, 768-d, **124M parameters**, pretrained on 160 GB of English text) → masked mean-pool → dropout → linear → 367 logits.
 - **Training:** all weights are fine-tuned with AdamW (encoder learning rate 3e-5, head 1e-3), 6% warm-up, linear decay, batch 32, dynamic padding, 2 epochs.
-- **Data sampling:** each epoch **re-samples 4 of the 20 captions** per training clip.
+- **Data sampling:** each epoch **re-samples 4 of the 20 captions** per training clip, so the model sees 8 distinct captions per clip in total.
 - **Model selection:** checkpoints are chosen on validation F1@5 only.
-- **Where the weights come from:** `roberta.source: hf` loads Hugging Face `roberta-base`. The default `spacy` source loads the **same RoBERTa-base weights** packaged in spaCy's `en_core_web_trf` (GitHub releases), which was used here because the build machine could not reach Hugging Face.
-- **Resumable training:** the full training state (weights, optimizer, scheduler, position in the data) is saved every 200 steps with atomic writes; `--resume` continues exactly where it stopped.
+- **Where the weights come from:** `roberta.source: hf` loads Hugging Face `roberta-base`. The build machine could not reach Hugging Face, so the default `spacy` source loads the **same RoBERTa-base weights** packaged in spaCy's `en_core_web_trf`, which is hosted on GitHub releases (`src/hashtagger/models/pretrained.py`).
+- **Resumable training:** the full training state (weights, optimizer, scheduler, position in the data) is saved every 200 steps with **atomic writes**, so a kill mid-save cannot corrupt it. `--resume` continues exactly where it stopped. The reported run was paused once after epoch 1. Epoch 2 resumed from the epoch-1 weights with the learning-rate schedule fast-forwarded, but with fresh AdamW moments, because the exact-resume feature was added during that pause (`results/roberta_resume.json`).
 
 **RL fine-tuning (applied to both the Transformer and RoBERTa).** The model is treated as a **policy** over tag sets, π(S | caption) = ∏ⱼ Bernoulli(sⱼ; σ(zⱼ)):
 
@@ -141,14 +144,14 @@ decode   greedy:  sⱼ = 1  iff  pⱼ ≥ 0.5
 
 <p align="center"><img src="results/figures/rl_curve.png" width="85%"></p>
 
-**LLM zero-shot.** The LLM gets the caption plus the full allowed-tag list (~920 prompt tokens) and returns 5 tags as JSON.
+**LLM zero-shot.** The LLM gets the caption plus the full allowed-tag list (~900 prompt tokens) and returns 5 tags as JSON.
 
-**LLM rerank (hybrid).** The Transformer + RL model proposes its **top-12 candidates with confidences** (~260 prompt tokens). The LLM picks the best 5, may add one missed tag, and suggests up to 2 creative tags, which are not scored. A validator keeps exactly one category tag; LLMs routinely answer `#food` + `#cooking`. The client supports **Anthropic, OpenAI, Ollama and vLLM**, and caches every response in `data/llm_cache/` so results reproduce without an API key.
+**LLM rerank (hybrid).** The Transformer + RL model proposes its **top-12 candidates with confidences** (~260 prompt tokens). The LLM picks the best 5, may add one missed tag, and suggests up to 2 creative tags, which are not scored. A validator keeps exactly one category tag. The client supports **Anthropic, OpenAI, Ollama and vLLM**, and caches every response in `data/llm_cache/` so results reproduce without an API key.
 
 ## 5. Evaluation: why not just F1@5
 
 F1@5 is a poor fit for this data, for three reasons:
-- **Its ceiling is not 1.0.** Clips have 1–10 gold tags, so even a perfect oracle scores only about F1@5 = 0.79. A clip with a single gold tag caps at 0.33.
+- **Its ceiling is not 1.0.** Clips have 1–10 gold tags, so even a perfect oracle scores only F1@5 = 0.79. A clip with a single gold tag caps at 0.33.
 - **It treats every tag as equally relevant.** A tag that 18 of 20 annotators mention counts the same as one that only 3 mention.
 - **It uses exact match.** `#movie` vs `#film` counts as a miss, and so does any reasonable tag outside the gold set.
 
@@ -171,7 +174,7 @@ Still missing: **LLM-as-judge or human ratings** (per-tag relevance, pairwise wi
 | Check | Result |
 |---|---|
 | Test clips cut from the same **YouTube source video** as a train/val clip | **0 / 2,990** (the standard split is source-disjoint) |
-| Label vocabulary, plural table, label prior, TF-IDF vocabulary, word tokenizer | Built from **train only**. RoBERTa uses its frozen pretrained tokenizer. |
+| Label vocabulary, label prior, TF-IDF vocabulary, word tokenizer | Built from **train only**. RoBERTa uses its frozen pretrained tokenizer. |
 | Checkpoint selection, decision thresholds, RL monitoring | **Validation only.** The test set is predicted once, after training. |
 | Metric gains | Computed from the **other 19 captions**. The input caption never contributes. |
 | LLM stages | The LLM saw only the caption (and the model's candidates). Never the gold labels. |
@@ -182,10 +185,11 @@ Still missing: **LLM-as-judge or human ratings** (per-tag relevance, pairwise wi
 
 | Model | wnDCG@5 | F1@5 | Hit@5 | Category top-1 |
 |---|---|---|---|---|
-| TF-IDF + LogReg | 0.492 | 0.397 | 83.6% | 48.5% |
-| Transformer from scratch + RL | 0.549 | 0.435 | 85.8% | 51.8% |
-| RoBERTa-base (BCE) | 0.552 | 0.459 | 88.8% | 55.0% |
-| **RoBERTa-base + RL** | **0.556** | 0.454 | 87.6% | 54.0% |
+| TF-IDF + LogReg | 0.493 | 0.399 | 84.0% | 48.5% |
+| Transformer from scratch + RL (PyTorch) | 0.548 | 0.436 | 85.7% | 51.2% |
+| Keras Transformer + RL (TensorFlow) | 0.543 | 0.441 | 85.7% | 52.3% |
+| RoBERTa-base (BCE) | 0.558 | 0.465 | 89.2% | 55.0% |
+| **RoBERTa-base + RL** | **0.565** | 0.460 | 88.6% | 54.8% |
 
 ## 7. Results in detail
 
@@ -195,34 +199,30 @@ Full tables: [`results/results.md`](results/results.md). Raw numbers: [`results/
 
 | Comparison | Δ | 95% CI |
 |---|---|---|
-| RoBERTa-BCE vs Transformer-BCE (wnDCG@5) | +0.016 | [+0.009, +0.024] |
-| RoBERTa+RL vs Transformer+RL (wnDCG@5) | +0.003 | [−0.005, +0.010] (n.s.) |
-| RoBERTa+RL vs Transformer+RL (Set-F1) | +0.017 | [+0.010, +0.024] |
-| RoBERTa+RL vs RoBERTa-BCE (Set-F1) | +0.014 | [+0.008, +0.019] |
-| RoBERTa+RL vs RoBERTa-BCE (wnDCG@5) | +0.003 | [−0.001, +0.007] (n.s.) |
-| Transformer+RL vs Transformer-BCE (Set-F1) | +0.024 | [+0.019, +0.030] |
-| LLM rerank vs Transformer+RL (wnDCG@5, subset) | −0.014 | [−0.053, +0.024] (n.s.) |
-| LLM rerank vs Transformer+RL (F1@5, subset) | +0.013 | [−0.010, +0.036] (n.s.) |
-| RoBERTa+RL vs LLM rerank (wnDCG@5, subset) | +0.023 | [−0.015, +0.062] (n.s.) |
+| RoBERTa-BCE vs Transformer-BCE (wnDCG@5) | +0.022 | [+0.014, +0.029] |
+| RoBERTa+RL vs RoBERTa-BCE (Set-F1) | +0.017 | [+0.011, +0.022] |
+| RoBERTa+RL vs RoBERTa-BCE (wnDCG@5) | +0.007 | [+0.003, +0.011] |
+| RoBERTa+RL vs Transformer+RL (wnDCG@5) | +0.014 | [+0.007, +0.021] |
+| RoBERTa+RL vs Transformer+RL (Set-F1) | +0.023 | [+0.017, +0.030] |
+| Transformer+RL vs Transformer-BCE (Set-F1) | +0.025 | [+0.019, +0.030] |
+| Keras+RL vs Keras-BCE (Set-F1) | +0.025 | [+0.020, +0.030] |
+| **Keras (TensorFlow)+RL vs PyTorch Transformer+RL (wnDCG@5)** | −0.004 | [−0.011, +0.004] (n.s.) |
+| **Keras (TensorFlow)+RL vs PyTorch Transformer+RL (Set-F1)** | +0.006 | [−0.000, +0.013] (n.s.) |
+| LLM rerank vs Transformer+RL (F1@5, subset) | +0.022 | [+0.001, +0.045] |
+| LLM rerank vs Transformer+RL (wnDCG@5, subset) | −0.010 | [−0.047, +0.027] (n.s.) |
+| RoBERTa+RL vs LLM rerank (wnDCG@5, subset) | +0.046 | [+0.007, +0.085] |
 
 ### LLM comparison (fixed random subset of 200 test clips)
 
 <p align="center"><img src="results/figures/llm_subset.png" width="90%"></p>
 
-| Model | wnDCG@5 | F1@5 | Set-F1 | Prompt tokens |
-|---|---|---|---|---|
-| Transformer + RL | 0.563 | 0.428 | 0.453 | 0 |
-| RoBERTa + RL | **0.571** | 0.439 | **0.466** | 0 |
-| LLM zero-shot | 0.511 | 0.401 | 0.411 | ~921 |
-| Transformer + RL → LLM rerank | 0.548 | **0.441** | 0.441 | ~262 |
-
-The LLM tends to choose **specific** tags (`#chicken`, `#frying`), where the models choose **high-agreement** tags (`#food`, `#dish`). Exact-match F1 slightly favours the first; agreement-weighted wnDCG favours the second. None of the LLM differences is significant on 200 clips. The LLM's clearest contribution is world knowledge. For *"a helicopter flies over rooftops while gunfire is heard and a narrator mentions syria"*, only the LLM rerank produced `#news #war`.
+The LLM tends to choose **specific** tags (`#chicken`, `#frying`), where the models choose **high-agreement** tags (`#food`, `#dish`). Exact-match F1 rewards the first; agreement-weighted wnDCG rewards the second. Which one users prefer is exactly what an LLM-judge or online test would decide. The LLM still contributes world knowledge the encoders lack: for *"a helicopter flies over rooftops while gunfire is heard and a narrator mentions syria"*, only the LLM rerank produced `#news #war`.
 
 ### Per kind of video
 
 <p align="center"><img src="results/figures/per_category.png" width="65%"></p>
 
-Concrete, visual categories (`#autos`, `#animals`, `#food`, `#howto`, `#sports`, `#gaming`) reach wnDCG@5 ≈ 0.65–0.74. Categories defined by *format* rather than content (`#ads`, `#tvshow`, `#documentary`, `#people`) stay below 0.3: an ad for a car is described as a car. Pretraining helps most on `#howto`, `#animals` and `#food`; it loses ground on `#scitech`, `#education` and `#music`.
+Concrete, visual categories (`#autos`, `#animals`, `#sports`, `#gaming`) reach wnDCG@5 ≈ 0.67–0.72. Categories defined by *format* rather than content (`#ads`, `#tvshow`, `#documentary`, `#people`) stay below 0.3: an ad for a car is described as a car. Pretraining helps most on `#animals`, `#news` and `#education`, where world knowledge matters. It loses a little ground on `#cooking`, `#scitech` and `#music`.
 
 ### Efficiency
 
@@ -230,46 +230,48 @@ Concrete, visual categories (`#autos`, `#animals`, `#food`, `#howto`, `#sports`,
 
 | Model | p50 latency | Throughput (batched) | Size | Params | Train time (2 vCPU) |
 |---|---|---|---|---|---|
-| Keyword rules | 6.9 ms* | 29k/s | – | – | – |
-| TF-IDF + LogReg | 0.48 ms | 28k/s | 45 MB | 11.6M | 1.4 min |
-| Transformer from scratch + RL | 1.3 ms | 1.8k/s | 14 MB | 3.6M | 32 min |
-| RoBERTa-base + RL | 77 ms | 46/s | 474 MB | 124.4M | 69 min |
-| LLM rerank | one LLM call | – | – | – | ~262 input / 26 output tokens |
+| Keyword rules | 0.18 ms | 0.9k/s | – | – | – |
+| TF-IDF + LogReg | 0.64 ms | 21k/s | 43 MB | 11.0M | 2 min |
+| Transformer from scratch + RL (PyTorch) | 1.9 ms | 1.2k/s | 14 MB | 3.6M | 32 min |
+| Keras Transformer + RL (TensorFlow) | 2.3 ms | 1.2k/s | 14 MB | 3.6M | 32 min |
+| RoBERTa-base + RL † | 113 ms | 32/s | 474 MB | 124.3M | 90 min |
+| LLM rerank | one LLM call | – | – | – | ~263 input / 26 output tokens |
 
-All latencies are measured on **one CPU thread** (\*eager TensorFlow overhead; see the TL;DR note). RoBERTa would run in a few ms on a GPU, or with ONNX/int8 quantisation, but the comparison above is like-for-like.
+All latencies are measured on **one CPU thread** (the Keras model through a `tf.function` taking raw strings). † measured in an earlier run of the same pipeline; the 474 MB checkpoint is not kept on disk. RoBERTa would run in a few ms on a GPU, or with ONNX/int8 quantisation, but the comparison above is like-for-like.
 
 ### Examples (test set)
 
-| Caption (model input) | Gold (other annotators) | Transformer + RL | RoBERTa + RL | LLM rerank |
-|---|---|---|---|---|
-| *a rock band is playing on stage* | band concert crowd music perform performing rock song stage | band music performing stage song singing concert | band stage performing music singing song rock concert guitar | music band rock stage concert |
-| *a soup is been prepared and its been kept in the cup* | bowl dish food pot recipe soup spoon | food soup dish kitchen bowl ingredient fish | food soup dish pot bowl kitchen | food soup bowl dish pot |
-| *a man is interviewing stephen hawking with a laugh track in the background* | interview interviewing tvshow | sports track news race ❌ | interview interviewed news interviewing | scitech interview interviewed laughing track |
-| *a helicopter flies over rooftops while gunfire is heard and a narrator mentions syria* | fighting flying news war | flying fly travel | movies plane movie | news flying sky war air |
+| Caption (model input) | Gold (other annotators) | Transformer + RL (PyTorch) | Keras + RL (TensorFlow) | RoBERTa + RL | LLM rerank |
+|---|---|---|---|---|---|
+| *a rock band is playing on stage* | band concert crowd music performing rock song stage | band music performing stage singing song concert | band stage performing music singing song rock | band stage performing music singing song guitar rock | music band rock stage concert |
+| *a soup is been prepared and its been kept in the cup* | bowl dish food pot recipe serving soup spoon | food soup bowl preparing dish cooking kitchen | soup food preparing bowl pot dish spoon | food soup pot bowl preparing dish kitchen | cooking soup bowl preparing dish |
+| *a man is interviewing stephen hawking with a laugh track in the background* | interviewing tvshow | track sports race ❌ | education ❌ | interviewing interview news | scitech interviewing interview science laughing |
+| *a helicopter flies over rooftops while gunfire is heard and a narrator mentions syria* | fighting flying news shooting war | flying travel sky plane air | city | flying | news flying war plane sky |
 
-The third row shows pretraining at work. The from-scratch model reads "laugh *track*" as a race track; RoBERTa doesn't. The fourth row shows the LLM's world knowledge.
+The third row shows pretraining at work. Both from-scratch models (PyTorch and Keras) get it wrong, and the PyTorch one reads "laugh *track*" as a race track; RoBERTa doesn't. The fourth row shows the LLM's world knowledge.
 
 ## 8. Lessons learned (debugging notes)
 
-- **TensorFlow and PyTorch's Triton can't share a process.** With TensorFlow and the CUDA build of PyTorch in one Python process, PyTorch lazily imports Triton (its GPU compiler) when an optimizer is created. Both libraries register the same LLVM options, so the process aborts with `LLVM ERROR: inconsistency in registered CommandLine options`. On a CPU-only machine the fix is to remove Triton (`pip uninstall triton`), or to install the CPU build of PyTorch, which ships without it.
-- **Weight decay plus an adaptive optimiser silently broke the linear baseline.** With Adam or Adagrad, an L2 term added to the gradient gets *normalised per coordinate*. For a sparse n-gram absent from a batch, even `1e-6` decay becomes a full-size step toward zero. Setting `weight_decay=0` lifted validation F1@5 from 0.27 to 0.39.
-- **Without a POS tagger, the stop-list does the work.** The first TensorFlow vocabulary contained adjectives and names (`older`, `female`, `ready`, `david`) that a part-of-speech filter used to drop. Reviewing the vocabulary and extending the stop-list fixed it.
+- **TensorFlow and PyTorch's Triton can't share a process.** With TensorFlow and the CUDA build of PyTorch in one Python process, PyTorch lazily imports Triton (its GPU compiler) when an optimizer is created. Both libraries register the same LLVM options, so the process aborts with `LLVM ERROR: inconsistency in registered CommandLine options`. On a CPU-only machine the fix is to install the CPU build of PyTorch (which ships without Triton) or `pip uninstall triton`.
+- **A `.keras` file can silently carry the optimizer.** Exporting a model that wraps a *compiled* sub-model saved the AdamW moments too (43 MB instead of 14 MB). Copying the weights into a fresh, un-compiled instance before saving fixed it.
+- **Weight decay plus an adaptive optimiser silently broke the linear baseline.** With Adam or Adagrad, an L2 term added to the gradient gets *normalised per coordinate*. For a sparse n-gram absent from a batch, even `1e-6` decay becomes a full-size step toward zero. The model gave *"a dog is running"* a 12% chance of `#dog`, against a 92% empirical rate. Setting `weight_decay=0` lifted validation F1@5 from 0.27 to 0.39.
 - **Label namespaces matter.** Category names doubled as topic tags at first, which blurred the category signal. Reserving them fixed it.
-- **Pick the metric before reading the leaderboard.** F1@5 and wnDCG@5 can disagree about the LLM rerank (§7).
+- **Pick the metric before reading the leaderboard.** F1@5 and wnDCG@5 disagree about the LLM rerank (§7).
 - **Make long training runs resumable, with atomic checkpoints.** A smoke test that killed the process mid-save produced a corrupted 380 MB file. Writing to a temp file followed by `os.replace` fixed it.
+- **Initialise output biases to the label prior.** With 367 labels and ~1% positives, starting at p = 0.5 wastes the first epoch.
 
 ## 9. Honest limitations & next steps
 
 **Limitations**
 - **LLM numbers come from 200 clips**, so their confidence intervals are wide. **The LLM outputs in `data/llm_cache/` were produced by Claude (`claude-opus-5-5`) answering the exact prompts in `src/hashtagger/llm/prompts.py`.** They were recorded through the script's batch `--export-pending` / `--import-answers` workflow, because the build machine had no API access. Token counts are therefore estimated (~4 characters per token) and LLM latency was not measured. Re-run with `--provider anthropic` (or `openai` / `ollama`) to replace them.
-- **The labels now come from a TensorFlow pipeline** (an earlier version used NLTK part-of-speech tagging and lemmatisation; see the git history). Without lemmatisation, verb forms stay separate (`cook`, `cooking`), so the label set differs and numbers are not directly comparable across the two versions.
+- **TensorFlow is used for the Keras model only.** Labels are built with NLTK (part-of-speech tagging + lemmatisation), which gave cleaner tags than a TensorFlow-only text pipeline in an earlier experiment (fewer duplicates such as `cook` / `cooking`; see the git history).
+- **The LLM rerank still uses the Transformer + RL candidates.** Re-running it on RoBERTa + RL candidates is the obvious next experiment.
 - **Labels are weak supervision** (annotator consensus): they capture what people *see*, not what is *trending*.
 - **The models are text-only.** The RoBERTa checkpoint (474 MB) is not committed because it exceeds GitHub's 100 MB limit; `make roberta` reproduces it.
 
 **Next steps**
-- **Distillation:** train the 14 MB Transformer on RoBERTa + RL soft labels to keep its Set-F1 and category accuracy at 1 ms.
+- **Distillation:** train the 14 MB Transformer on RoBERTa + RL (and LLM-rerank) soft labels, to keep most of the quality at 2 ms.
 - **RLAIF:** use an LLM judge as the reward in the RL loop, and report LLM-judge win-rates as an evaluation metric.
-- **LLM rerank on RoBERTa candidates**, and a larger LLM evaluation subset.
 - **Multimodal:** add CLIP frame embeddings alongside the caption encoder.
 
 ---
@@ -280,12 +282,12 @@ The third row shows pretraining at work. The from-scratch model reads "laugh *tr
 video-hashtag-llm/
 ├── README.md
 ├── LICENSE
-├── Makefile                      # make all | data | baselines | transformer | rl | roberta [RESUME=1] | llm | eval | figures | test | demo
+├── Makefile                      # make all | data | baselines | transformer | rl | keras | roberta [RESUME=1] | llm | eval | figures | test | demo
 ├── requirements.txt
 ├── configs/
 │   └── default.yaml              # every hyper-parameter in one place
 ├── scripts/
-│   ├── download_data.sh          # MSR-VTT annotations (~4 MB)
+│   ├── download_data.sh          # MSR-VTT annotations (~4 MB) + NLTK data
 │   ├── 01_prepare_data.py        # consensus labels → data/processed/
 │   ├── 02_train_baselines.py     # keyword rules, TF-IDF + LogReg
 │   ├── 03_train_transformer.py   # from-scratch Transformer (BCE)
@@ -293,10 +295,11 @@ video-hashtag-llm/
 │   ├── 05_llm_hashtags.py        # LLM zero-shot / rerank (live, cached or batch import)
 │   ├── 06_evaluate.py            # metric suite, clean test, bootstrap CIs, latency/size
 │   ├── 07_make_figures.py
-│   └── 08_finetune_roberta.py    # pretrained RoBERTa-base: BCE fine-tune + RL, resumable
+│   ├── 08_finetune_roberta.py    # pretrained RoBERTa-base: BCE fine-tune + RL, resumable
+│   └── 09_train_keras.py         # the Transformer + RL re-implemented in TensorFlow/Keras
 ├── src/hashtagger/
 │   ├── data.py                   # loading, split, weak-supervision labels, metric gains
-│   ├── text.py                   # TensorFlow text pipeline: tf.strings, TextVectorization, tf.lookup
+│   ├── text.py                   # POS tagging, lemmatisation, gerunds, stop-tags
 │   ├── metrics.py                # wnDCG / nDCG / wRecall / Hit@k, P/R/F1@k, Set-F1, category suite
 │   ├── predict.py                # Hashtagger inference API (RoBERTa or Transformer)
 │   ├── utils.py
@@ -304,24 +307,28 @@ video-hashtag-llm/
 │   │   ├── common.py             # label space, top-k / threshold decoding, threshold tuning
 │   │   ├── keyword.py
 │   │   ├── tfidf_linear.py
-│   │   ├── transformer.py
+│   │   ├── transformer.py        # PyTorch Transformer
+│   │   ├── keras_transformer.py  # TensorFlow/Keras Transformer + GradientTape RL loop
 │   │   ├── pretrained.py         # RoBERTa-base backbone (HF or spaCy weights) + tagging head
 │   │   └── rl.py                 # policy-gradient fine-tuning
 │   └── llm/
 │       ├── client.py             # Anthropic / OpenAI / Ollama + response cache + validators
 │       └── prompts.py
+├── docs/
+│   └── Caption_to_Hashtag_Report.docx   # full project report (Word)
 ├── demo/
-│   ├── cli.py                    # python demo/cli.py "your caption" [--tagger roberta] [--llm anthropic]
+│   ├── cli.py                    # python demo/cli.py "your caption" [--tagger keras|roberta] [--llm anthropic]
 │   └── app.py                    # Gradio web UI
 ├── tests/
 │   └── test_core.py              # metrics, RL reward, decoding, LLM parsing
 ├── checkpoints/
-│   └── transformer_rl.pt         # 14 MB model shipped for the demo (RoBERTa: run `make roberta`)
+│   ├── transformer_rl.pt         # 14 MB PyTorch model shipped for the demo
+│   └── keras_rl.keras            # 14 MB TensorFlow/Keras model (raw strings in) — RoBERTa: run `make roberta`
 ├── data/
 │   └── llm_cache/                # cached LLM responses (zero_shot.jsonl, hybrid.jsonl)
 └── results/
     ├── metrics.json  results.md  dataset_stats.json
-    ├── train_log_*.json  llm_*_usage.json  llm_subset_ids.json
+    ├── train_log_*.json  roberta_resume.json  llm_*_usage.json  llm_subset_ids.json
     ├── preds/llm_*_test_subset.json
     └── figures/*.png
 ```
@@ -336,10 +343,12 @@ pip install -r requirements.txt
 
 # Try the shipped 14 MB model right away
 python demo/cli.py "a woman applies eye makeup in front of a mirror"
+python demo/cli.py --tagger keras "kids playing minecraft and building a house"   # TensorFlow model
 python demo/app.py                      # http://localhost:7860
 
-# Reproduce everything (~2 h on a 2-core CPU; much faster on a GPU)
+# Reproduce everything (~2.7 h on a 2-core CPU; much faster on a GPU)
 make all
+make keras                              # the TensorFlow/Keras Transformer + RL
 make roberta RESUME=1                   # continue an interrupted RoBERTa run
 make test
 

@@ -24,7 +24,7 @@ log = {}
 
 # ---- keyword baseline (no training) -------------------------------------------
 prior = Ytr.sum(0)
-kw = KeywordTagger(labels, meta["term_map"], prior)
+kw = KeywordTagger(labels, meta["gerunds"], prior)
 np.save(ckpt / "keyword_prior.npy", prior)
 for split in ["val", "test"]:
     X, _, _ = data.eval_examples(videos, split)
