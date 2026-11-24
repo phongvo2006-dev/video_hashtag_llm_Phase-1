@@ -1,410 +1,666 @@
-# 🎬 Caption-to-Hashtag: RoBERTa + RL + LLM for video hashtags
+# Caption-to-Hashtag Generation with RoBERTa, Reinforcement Learning, and LLMs
 
-**Given a one-sentence description of a video, generate the hashtags people would use for it, across 20 kinds of video (music, gaming, cooking, autos, news, beauty, ...).**
+An end-to-end NLP project that generates relevant hashtags from a
+one-sentence video description. The system is evaluated across **20
+video categories** and compares lightweight baselines, neural text
+encoders, a pretrained transformer, reinforcement-learning fine-tuning,
+and LLM-based generation and reranking.
 
-An end-to-end, CPU-only project:
-- **dataset choice** and weak-supervision labelling from annotator consensus;
-- a **model ladder** from keyword rules to a fine-tuned pretrained **RoBERTa-base**;
-- **reinforcement-learning fine-tuning** on a set-level reward;
-- an **LLM stage** (zero-shot, and reranking the best model's candidates);
-- a **leakage audit**, a metric suite built for this data, bootstrap confidence intervals, an efficiency benchmark;
-- a **discussion of the trade-offs** between the optimal model and the cheaper ones (§8).
+> **Project focus:** multi-label text classification, pretrained
+> language models, reward-based optimization, evaluation design, and
+> model efficiency.
 
-Every number below comes from scripts in this repo.
+------------------------------------------------------------------------
 
-```text
-Test-set examples (input caption → RoBERTa + RL, threshold 0.5)
-"a rock band is playing on stage"
-  → #band  #stage  #performing  #music  #singing  #song  #guitar  #rock
-"a surfer recalls a horrific experience of near drowning in the rough seas ..."
-  → #water  #surfing  #boat  #ocean  #sports  #sea  #swimming  #wave
+## 1. Project Overview
+
+### Motivation
+
+Hashtags help users discover video content through search and
+recommendation systems. However, a short video description does not
+necessarily contain the terms that viewers would use as hashtags. For
+example, the caption *"a man drives an Audi through the countryside"*
+may imply tags such as `#autos`, `#car`, `#driving`, and `#road`, even
+when those exact terms are not all present in the caption.
+
+This project investigates how NLP models can infer both:
+
+-   **Category-level tags**, representing the broad type of video.
+-   **Topic-level tags**, representing the specific objects, activities,
+    or concepts in the video.
+
+The goal is not simply to extract keywords, but to predict a useful,
+ranked set of hashtags from a short natural-language description.
+
+### Task Definition
+
+Given one caption, predict a ranked set of hashtags from a fixed
+vocabulary of **367 labels**, including **20 video-category labels**.
+
+-   **Input:** one natural-language video caption.
+-   **Output:** a ranked list or predicted set of hashtags.
+-   **Task formulation:** multi-label prediction.
+
+### Project Highlights
+
+-   Weakly supervised label construction from human-caption consensus.
+-   A model comparison ladder, from keyword rules to fine-tuned RoBERTa.
+-   REINFORCE/RLOO-style policy-gradient fine-tuning using a set-level
+    F1 reward.
+-   LLM zero-shot generation and candidate reranking.
+-   Evaluation using ranking, coverage, set-prediction, and category
+    metrics.
+-   Leakage checks, paired bootstrap confidence intervals, and CPU
+    efficiency benchmarks.
+
+------------------------------------------------------------------------
+
+## 2. Dataset and Label Construction
+
+### Dataset Selection: MSR-VTT
+
+The project uses **MSR-VTT** (Xu et al., CVPR 2016), a video-captioning
+benchmark containing:
+
+-   10,000 YouTube video clips.
+-   20 human-written captions per clip (approximately 200,000 captions).
+-   20 video categories.
+-   Standard train, validation, and test splits.
+
+The standard split used in this project is:
+
+  Split          Number of clips
+  ------------ -----------------
+  Train                    6,513
+  Validation                 497
+  Test                     2,990
+
+MSR-VTT was selected because it provides both natural-language
+descriptions and video-category annotations. This makes it possible to
+construct a reproducible hashtag-prediction task without relying on
+scraped social-media hashtags, which can be noisy and difficult to
+reproduce.
+
+### Weakly Supervised Hashtag Labels
+
+MSR-VTT does not provide ground-truth social-media hashtags. Therefore,
+labels are constructed from the captions written by independent
+annotators.
+
+1.  **Category labels:** the annotated video category is mapped to a
+    category hashtag (e.g. `#music`, `#gaming`, or `#autos`).
+2.  **Topic labels:** captions are POS-tagged and lemmatized. Nouns are
+    normalized to singular forms and verbs to gerunds.
+3.  **Annotator consensus:** a normalized term is retained as a topic
+    label when at least **3 of the 20 captions** mention it.
+4.  **Filtering:** generic terms (e.g. `man`, `video`) and visually
+    uninformative terms (e.g. `shirt`, `chair`) are removed.
+5.  **Vocabulary construction:** the hashtag vocabulary is built using
+    training data only.
+
+The resulting label space contains **367 hashtags**. Each clip has an
+average of **4.1 gold tags**.
+
+**Evaluation protocol:** the model receives one randomly selected
+caption for a clip. Its predictions are compared with labels derived
+from the other annotators' captions. The input caption is excluded from
+the consensus-based relevance calculation.
+
+> **Important interpretation:** these labels are weak supervision
+> derived from caption agreement. They approximate concepts
+> independently mentioned by annotators; they are not verified
+> real-world trending hashtags or direct measurements of social-media
+> engagement.
+
+------------------------------------------------------------------------
+
+## 3. Methodology and Pipeline
+
+The system is developed as a sequence of increasingly expressive
+approaches. Each stage provides a comparison point for understanding the
+contribution of lexical matching, learned representations, pretraining,
+reward optimization, and LLM reasoning.
+
+``` mermaid
+flowchart TD
+    A[MSR-VTT: captions and categories] --> B[Preprocessing and weak-label construction]
+    B --> C[Train / validation / test data]
+    C --> D1[Keyword rules]
+    C --> D2[TF-IDF + Logistic Regression]
+    C --> D3[Transformer trained from scratch]
+    C --> D4[Fine-tuned RoBERTa-base]
+    D4 --> E[RL fine-tuning with set-level reward]
+    E --> F[Top candidate hashtags]
+    C --> G[LLM zero-shot generation]
+    F --> H[LLM candidate reranking]
+    D1 --> I[Evaluation and analysis]
+    D2 --> I
+    D3 --> I
+    D4 --> I
+    E --> I
+    G --> I
+    H --> I
+    I --> J[Metrics, confidence intervals, leakage audit, efficiency]
 ```
 
----
+### Main Stages
+
+  -----------------------------------------------------------------------
+  Stage                               Description
+  ----------------------------------- -----------------------------------
+  Data preparation                    Normalize captions, construct
+                                      consensus-based labels, and create
+                                      the label vocabulary.
+
+  Baseline modelling                  Establish lexical and conventional
+                                      machine-learning baselines.
+
+  Neural modelling                    Train a Transformer encoder from
+                                      scratch and fine-tune pretrained
+                                      RoBERTa.
+
+  Reward optimization                 Fine-tune RoBERTa with a
+                                      policy-gradient objective based on
+                                      set-level F1.
+
+  LLM experiments                     Evaluate zero-shot hashtag
+                                      generation and LLM reranking of
+                                      model candidates.
+
+  Evaluation                          Compare predictive quality,
+                                      category performance, robustness,
+                                      statistical uncertainty, and
+                                      inference cost.
+  -----------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+## 4. Models and Experimental Design
+
+The models are organized as a comparison ladder. Each model addresses a
+different question about the value of learning, contextual
+representations, pretraining, and reward-based optimization.
+
+  -----------------------------------------------------------------------
+  Model                   Approach                Purpose
+  ----------------------- ----------------------- -----------------------
+  Keyword rules           Caption keyword         Establish a simple
+                          matching and            non-learning baseline.
+                          popular-tag fallback    
+
+  TF-IDF + Logistic       Word unigram/bigram     Measure the value of
+  Regression              features with           supervised learning
+                          multi-label sigmoid     with sparse lexical
+                          outputs                 features.
+
+  Transformer from        Lightweight Transformer Evaluate contextual
+  scratch                 encoder implemented in  representation learning
+                          TensorFlow/Keras        without pretrained
+                                                  weights.
+
+  RoBERTa-base (BCE)      Pretrained RoBERTa      Measure the
+                          encoder with a          contribution of
+                          multi-label             large-scale
+                          classification head     language-model
+                                                  pretraining.
+
+  **RoBERTa-base + RL**   RoBERTa fine-tuning     Optimize the predicted
+                          followed by             tag set using a
+                          policy-gradient         task-level reward.
+                          optimization            
+
+  LLM zero-shot           Prompt an LLM to        Assess generation
+                          generate hashtags       without task-specific
+                          directly from a caption supervised training.
+
+  RoBERTa + RL + LLM      LLM selects or reorders Assess whether LLM
+  reranking               candidates proposed by  reasoning improves
+                          the best tagger         candidate selection.
+  -----------------------------------------------------------------------
+
+### RoBERTa Multi-label Classifier
+
+The main supervised model uses **RoBERTa-base** as its text encoder:
+
+-   Byte-level BPE tokenization.
+-   12-layer RoBERTa-base encoder with a 768-dimensional hidden
+    representation.
+-   Masked mean pooling over token representations.
+-   Dropout and a linear classification head.
+-   367 output logits, one for each hashtag label.
+-   Binary cross-entropy (BCE) for multi-label supervised fine-tuning.
+
+The model contains approximately **124M parameters**. Checkpoints are
+selected using validation performance.
+
+### Reinforcement-Learning Fine-tuning
 
-## TL;DR results
+The RL stage treats the hashtag predictor as a policy over possible tag
+sets. Each label is sampled from a Bernoulli distribution parameterized
+by the model's predicted probability.
 
-Test set: **2,990 clips**, one caption each. Primary metric: **wnDCG@5** (§5; ceiling 1.0).
+The optimization uses:
+
+-   **Reward:** set-level F1 between a sampled tag set and the gold
+    labels.
+-   **Policy-gradient estimator:** REINFORCE.
+-   **Baseline:** leave-one-out reward baseline (RLOO), computed from
+    the other sampled tag sets.
+-   **Supervised anchor:** a BCE term is retained to reduce deviation
+    from the supervised model.
 
-| Model | wnDCG@5 | Hit@5 | Set-F1 | Category top-1 / top-2 | Latency (CPU, 1 thread) | Size |
-|---|---|---|---|---|---|---|
-| Keyword rules (no learning) | 0.302 | 76.2% | 0.321 | 14.1% / 24.2% | 0.2 ms | – |
-| TF-IDF + logistic regression (TensorFlow) | 0.501 | 83.4% | 0.387 | 48.7% / 62.0% | 1.2 ms | 43 MB |
-| Transformer from scratch (TensorFlow/Keras) | 0.531 | 85.3% | 0.447 | 52.1% / 65.3% | 2.3 ms | 14 MB |
-| RoBERTa-base fine-tuned (BCE) | 0.559 | **88.8%** | 0.472 | **54.7%** / 69.2% | 113 ms | 474 MB |
-| **RoBERTa-base fine-tuned + RL** (optimal) | **0.565** | 88.2% | **0.489** | 54.6% / **69.4%** | 113 ms | 474 MB |
+This design targets a limitation of independent BCE classification: BCE
+optimizes each label separately, whereas the final application evaluates
+a set of predicted tags. The RL stage therefore explores direct
+optimization of a set-level objective.
 
-LLM stages are scored on a fixed 200-clip subset (§7): **LLM zero-shot 0.514** and **RoBERTa + RL → LLM rerank 0.543**, against **0.592 for RoBERTa + RL** on the same clips.
+### LLM Experiments
 
-**Takeaways**
-1. **Pretraining is the biggest gain among learned models.** RoBERTa + RL beats the Transformer trained from scratch by **+0.034 wnDCG@5 [95% CI +0.026, +0.043]** and TF-IDF by **+0.064 [+0.055, +0.073]**. The gain is largest on `#news`, `#food`, `#movies`, `#travel`, where world knowledge matters.
-2. **RL teaches the model how many tags to emit.** It raises Set-F1 at the default 0.5 threshold by **+0.017 [+0.011, +0.022]** (2.6 → 3.4 tags per clip; gold has 4.1) and wnDCG@5 by +0.007 [+0.003, +0.011].
-3. **…but simple threshold tuning gets the same Set-F1.** RoBERTa-BCE with a validation-tuned threshold matches RL: **Δ 0.000 [−0.005, +0.005]**. RL's real value is robustness to the threshold and a plug-in reward for RLAIF (§8.2).
-4. **The LLM adds knowledge and creativity, not ranking quality.** Reranking RoBERTa + RL's candidates ties on F1@5 (+0.006, n.s.) and **loses on wnDCG@5 (−0.049 [−0.076, −0.023])**, mostly because a product rule (exactly one category tag) removes the model's hedge between two categories (§8.3).
-5. **No leakage found.** 0 test clips share a YouTube source with train/val. On a "clean" test without the 11.6% of clips whose caption appears verbatim in training, RoBERTa + RL scores 0.565 → 0.565.
-6. **Quality costs ~50× latency and ~34× size.** RoBERTa + RL: 113 ms / 474 MB; the Keras Transformer: 2.3 ms / 14 MB, at 94% of its wnDCG@5. Which one to ship depends on the scenario (§8.5).
+Two LLM settings are evaluated:
 
-<p align="center"><img src="results/figures/quality_full_test.png" width="95%"></p>
-
----
-
-## 1. Problem framing
-
-Creators describe a video in one line. Platforms want **hashtags** for search, recommendation and reach. A caption doesn't spell out its hashtags: *"a man drives an audi through the countryside"* should yield `#autos #car #driving #road`. A good tagger must infer the **category** and the **topic tags other viewers would use**, not just copy words.
+1.  **Zero-shot generation:** the caption and allowed hashtag vocabulary
+    are provided to the LLM, which returns a set of candidate hashtags.
+2.  **Candidate reranking:** RoBERTa + RL proposes candidate hashtags
+    and confidence scores; the LLM selects and may suggest additional
+    tags under the prompt's output constraints.
 
-**Task:** multi-label prediction over **367 hashtags** (including 20 category tags). Input: one caption. Output: a ranked list, or a set whose size the model chooses.
-
-## 2. Dataset: why MSR-VTT
+LLM experiments are evaluated on a fixed **200-clip test subset**. Their
+results should therefore be interpreted separately from the full-test
+model comparison.
 
-| Candidate | Why / why not |
-|---|---|
-| **MSR-VTT** (Xu et al., CVPR 2016) ✅ | 10,000 YouTube clips × **20 human captions each** (200k sentences) × **20 video categories**. Standard splits, ~4 MB annotation file, widely cited. |
-| YouTube-8M | Topic labels, but no natural-language captions. |
-| Scraped TikTok / Instagram hashtags | Real hashtags, but noisy, spam-heavy, unclear licensing; hard to reproduce. |
-| VATEX | 41k captioned clips, but its labels are Kinetics *actions*, not video categories. |
-
-Split: the standard **6,513 train / 497 validation / 2,990 test** clips.
-
-### Labels from annotator consensus (weak supervision)
-
-MSR-VTT has no hashtags, so labels are built in `src/hashtagger/data.py`:
-1. **Category hashtag:** the clip's category → `#music`, `#gaming`, `#autos`, `#howto`, …. Category names are reserved for this, so `#cooking` means *this is a cooking video*.
-2. **Topic hashtags:** each caption is POS-tagged and lemmatised with NLTK; nouns become singular (`cars` → `car`), verbs become gerunds (`sings` → `singing`). A term becomes a **gold tag if ≥ 3 of the 20 annotators independently mention it**. Generic words (`man`, `video`) and visual-detail words (`shirt`, `chair`) are filtered out.
-3. The vocabulary comes from **training clips only**. Clips average 4.1 gold tags.
+------------------------------------------------------------------------
 
-At test time the model sees **one** randomly chosen caption (fixed seed) and must predict the tags the **other** annotators agreed on.
-
-## 3. Pipeline
-
-```mermaid
-flowchart LR
-    A[MSR-VTT annotations<br/>10k clips × 20 captions<br/>20 categories] --> B[01 prepare<br/>POS + lemmatise<br/>consensus ≥3/20 → gold tags]
-    B --> C0[02 Keyword rules]
-    B --> C1[02 TF-IDF + LogReg<br/>TensorFlow]
-    B --> C2[03 Transformer from scratch<br/>TensorFlow/Keras, 3.6M params]
-    B --> R1[04 RoBERTa-base<br/>fine-tune BCE, 124M params]
-    R1 --> R2[04 RL fine-tune<br/>REINFORCE + RLOO on set-F1]
-    R2 --> E[top-12 candidates]
-    E --> F[05 LLM rerank]
-    B --> G[05 LLM zero-shot]
-    C0 & C1 & C2 & R1 & R2 & F & G --> H[06 evaluate<br/>wnDCG@5 · Hit@5 · Set-F1 · category<br/>clean test · bootstrap CIs · latency]
-    H --> I[07 figures]
-```
-
-| Step | Script | Time (2 vCPU) |
-|---|---|---|
-| Build labels | `scripts/01_prepare_data.py` | 40 s |
-| Keyword rules + TF-IDF logistic regression | `scripts/02_train_baselines.py` | 2 min |
-| Transformer from scratch (Keras) | `scripts/03_train_transformer.py` | 24 min |
-| **RoBERTa-base fine-tune, then RL** | `scripts/04_finetune_roberta.py [--resume]` | **79 + 11 min** |
-| LLM zero-shot / rerank | `scripts/05_llm_hashtags.py --stage zero_shot / hybrid` | cached |
-| Evaluate + benchmark | `scripts/06_evaluate.py` | 20 s |
-| Figures | `scripts/07_make_figures.py` | 3 s |
-
-**Frameworks.** TF-IDF + logistic regression and the Transformer are TensorFlow/Keras. RoBERTa fine-tuning uses PyTorch, because its pretrained weights are distributed as a PyTorch model.
-
-## 4. Models — why each one is in the lineup
-
-Each model answers one question, so the gap between neighbours measures one idea.
-
-| # | Model | Question it answers |
-|---|---|---|
-| 0 | Keyword rules | How far does copying words from the caption get you? (floor) |
-| 1 | TF-IDF + logistic regression | How much does *learning* from data add, with no word order or semantics? |
-| 2 | Transformer from scratch | How much does a contextual neural encoder add, without pretraining? |
-| 3 | RoBERTa-base fine-tuned | How much does *pretraining* on 160 GB of text add? |
-| 4 | **RoBERTa + RL** | Does optimising the set-level metric directly beat per-tag BCE? |
-| 5 | LLM zero-shot / rerank | What does a general LLM add, alone or on top of the best model? |
-
-**0 · Keyword rules.** Hashtags are vocabulary terms that literally appear in the caption, padded with the most popular tags.
-
-**1 · TF-IDF + logistic regression (TensorFlow).** Word 1–2-gram TF-IDF (30k features, scikit-learn) → one linear layer with sigmoid outputs, trained in TensorFlow with `tf.sparse.sparse_dense_matmul`, BCE and Adagrad (lr 0.5); output biases start at the label prior. This is one-vs-rest logistic regression over all 367 tags at once.
-
-**2 · Transformer from scratch (TensorFlow/Keras)** (`src/hashtagger/models/keras_transformer.py`).
-- `keras.layers.TextVectorization` holds the word vocabulary (training captions only), so **the exported model takes raw caption strings** (TF Serving / TFLite ready).
-- Token + positional embeddings → 2 pre-LayerNorm encoder blocks (`MultiHeadAttention`, 4 heads, d=192, GELU feed-forward) → masked mean-pool → MLP → 367 logits. **3.6M parameters**, 14 MB `.keras` file.
-- `model.fit` with BCE, AdamW, warm-up + cosine decay, gradient clipping, 6 epochs. The decision threshold (0.30) is tuned on validation.
+## 5. Evaluation Metrics
 
-**3 · RoBERTa-base, fine-tuned.** The standard industry recipe for text tagging: a pretrained BERT-family encoder with a multi-label head.
-- **Architecture:** byte-BPE → RoBERTa-base (12 layers, 768-d, **124M parameters**) → masked mean-pool → dropout → linear → 367 logits.
-- **Training:** all weights fine-tuned with AdamW (encoder lr 3e-5, head 1e-3), 6% warm-up, linear decay, batch 32, dynamic padding, 2 epochs. Each epoch **re-samples 4 of the 20 captions** per clip. Checkpoints are selected on validation only.
-- **Weights:** `roberta.source: hf` loads Hugging Face `roberta-base`. The build machine could not reach Hugging Face, so the default `spacy` source loads the **same RoBERTa-base weights** packaged in spaCy's `en_core_web_trf`, hosted on GitHub releases.
-- **Resumable:** the full training state is saved every 200 steps with **atomic writes**; `--resume` continues where it stopped. The reported run was paused once after epoch 1 (`results/roberta_resume.json`).
+No single metric fully captures hashtag quality. The evaluation suite
+therefore considers ranking quality, relevance coverage, set prediction,
+and category recognition.
 
-**4 · RL fine-tuning of RoBERTa.** The model is treated as a **policy** over tag sets, π(S | caption) = ∏ⱼ Bernoulli(sⱼ; σ(zⱼ)):
+  -----------------------------------------------------------------------
+  Metric                  What it measures        Role
+  ----------------------- ----------------------- -----------------------
+  **wnDCG@5**             Ranking quality with    Primary
+                          relevance weighted by   
+                          annotator agreement;    
+                          the primary metric.     
 
-```
-sample   K = 4 tag-sets  S₁..S₄ ~ π(· | caption)
-reward   r(S) = F1(S, gold)                      ← any black-box reward plugs in here
-baseline bᵢ = mean_{k≠i} r(S_k)                   ← RLOO (Ahmadian et al., 2024)
-loss     −(rᵢ − bᵢ) · log π(Sᵢ)  +  0.5 · BCE     ← supervised anchor, like the SFT/KL anchor in RLHF
-decode   greedy:  sⱼ = 1  iff  pⱼ ≥ 0.5
-```
+  nDCG@5                  Ranking quality using   Supporting
+                          binary relevance.       
 
-BCE scores each tag independently, so it never learns *how many* tags to emit or which belong *together*. Set-F1 is not differentiable, so policy gradients optimise it directly. The leave-one-out baseline needs no critic (the same design choice as RLOO / GRPO in LLM RLHF). The reward function is the extension point: an LLM-judge score (RLAIF) or click-through data can drop in without changing the loop. One pass, 1 caption per clip, lr 1e-5.
+  wRecall@5               Proportion of           Supporting
+                          annotator-derived       
+                          relevance votes covered 
+                          by the top five         
+                          predictions.            
 
-**5 · LLM stages.**
-- **Zero-shot:** caption + the full allowed-tag list (~900 prompt tokens) → 5 tags as JSON.
-- **Rerank (hybrid):** RoBERTa + RL proposes its **top-12 candidates with confidences** (~260 prompt tokens). The LLM picks the best 5, may add one missed tag, and suggests up to 2 creative tags (not scored). A validator enforces exactly one category tag.
-- The client supports **Anthropic, OpenAI, Ollama and vLLM**, and caches every response in `data/llm_cache/`, so results reproduce without an API key.
-
-## 5. Evaluation: why not just F1@5
-
-F1@5 is a poor fit here:
-- **Its ceiling is not 1.0.** Clips have 1–10 gold tags, so a perfect oracle scores only F1@5 = 0.79; a clip with one gold tag caps at 0.33.
-- **Every tag counts the same.** A tag 18 of 20 annotators mention counts like one only 3 mention.
-- **Exact match.** `#movie` vs `#film` is a miss.
+  Hit@5                   Proportion of clips     Supporting
+                          with at least one       
+                          relevant prediction in  
+                          the top five.           
 
-The suite (`src/hashtagger/metrics.py`):
+  Set-F1                  Precision-recall        Supporting
+                          balance for the set     
+                          emitted by the model.   
 
-| Metric | What it measures |
-|---|---|
-| **wnDCG@5** (primary) | nDCG where each gold tag's gain = **share of the clip's *other* 19 captions that mention it**; the category tag gets gain 1. The input caption is excluded, so copying it earns nothing. **Ceiling 1.0.** |
-| nDCG@5 | The same with binary relevance. |
-| wRecall@5 | Share of annotator "votes" covered by the top 5. |
-| Hit@5 | Share of clips with ≥ 1 correct tag in the top 5 (user-facing view). |
-| Set-F1 | F1 of the set the model chooses to emit (threshold 0.5, or tuned on validation). |
-| Category top-1 / top-2 / macro-F1 | Top-2 because categories overlap (cooking vs food); macro-F1 because they are imbalanced. |
-| Paired bootstrap 95% CI | 5,000 resamples for every claimed difference. |
+  Category top-1 / top-2  Accuracy of the         Supporting
+                          predicted video         
+                          category.               
 
-Still missing: **LLM-as-judge / human ratings** and **online metrics** (tag acceptance, reach), the only ways to score valid tags absent from the gold set.
+  Category macro-F1       Category performance    Supporting
+                          while accounting for    
+                          class imbalance.        
+  -----------------------------------------------------------------------
 
-## 6. Leakage audit
+### Why wnDCG@5?
 
-| Check | Result |
-|---|---|
-| Test clips from the same **YouTube source** as a train/val clip | **0 / 2,990** |
-| Label vocabulary, label prior, TF-IDF vocabulary, Keras `TextVectorization` | **Train only.** RoBERTa uses its frozen pretrained tokenizer. |
-| Checkpoint selection, thresholds, RL monitoring | **Validation only.** Test is predicted once, after training. |
-| Metric gains | From the **other 19 captions**; the input caption never contributes. |
-| LLM stages | Saw only the caption (and candidates), never gold labels. |
-| Input caption appears **verbatim** in training | **348 clips (11.6%)**: generic sentences (*"a person is explaining something"*) describing different videos. Results are also reported on the **clean test** (2,642 clips). |
+A binary metric treats every gold tag as equally relevant. However, the
+consensus process contains different levels of annotator agreement.
+wnDCG@5 incorporates the proportion of the other captions that mention
+each tag, giving more weight to tags with stronger annotator support.
 
-**Clean test (2,642 clips)**
+The relevance calculation excludes the input caption, reducing the
+benefit of simply copying words from the model input.
 
-| Model | wnDCG@5 | F1@5 | Hit@5 | Category top-1 |
-|---|---|---|---|---|
-| Keyword rules | 0.297 | 0.275 | 75.7% | 13.7% |
-| TF-IDF + LogReg | 0.493 | 0.398 | 83.2% | 48.0% |
-| Transformer from scratch (Keras) | 0.525 | 0.435 | 85.1% | 51.9% |
-| RoBERTa-base (BCE) | 0.558 | 0.465 | 89.2% | 55.0% |
-| **RoBERTa-base + RL** | **0.565** | 0.460 | 88.6% | 54.8% |
+### Statistical Analysis
 
-## 7. Results in detail
+Model comparisons use **paired bootstrap confidence intervals (5,000
+resamples)**. This estimates uncertainty in performance differences
+while preserving the paired nature of predictions on the same test
+examples.
 
-Full tables: [`results/results.md`](results/results.md). Raw numbers: [`results/metrics.json`](results/metrics.json).
+------------------------------------------------------------------------
 
-### Significance (paired bootstrap, 5,000 resamples, full test set)
+## 6. Results
 
-| Comparison | Δ | 95% CI |
-|---|---|---|
-| RoBERTa+RL vs Transformer from scratch (wnDCG@5) | +0.034 | [+0.026, +0.043] |
-| RoBERTa+RL vs TF-IDF + LogReg (wnDCG@5) | +0.064 | [+0.055, +0.073] |
-| RoBERTa+RL vs Keyword rules (wnDCG@5) | +0.263 | [+0.252, +0.274] |
-| RoBERTa-BCE vs Transformer from scratch (wnDCG@5) | +0.028 | [+0.019, +0.036] |
-| RoBERTa+RL vs RoBERTa-BCE (Set-F1, threshold 0.5) | +0.017 | [+0.011, +0.022] |
-| RoBERTa+RL vs RoBERTa-BCE (wnDCG@5) | +0.007 | [+0.003, +0.011] |
-| RoBERTa+RL vs RoBERTa-BCE (F1@5, exactly 5 tags) | −0.004 | [−0.008, −0.001] |
-| RoBERTa+RL vs RoBERTa-BCE **with val-tuned threshold** (Set-F1) | 0.000 | [−0.005, +0.005] (n.s.) |
-| LLM rerank vs RoBERTa+RL (F1@5, subset) | +0.006 | [−0.013, +0.026] (n.s.) |
-| LLM rerank vs RoBERTa+RL (wnDCG@5, subset) | −0.049 | [−0.076, −0.023] |
-| LLM zero-shot vs RoBERTa+RL (wnDCG@5, subset) | −0.077 | [−0.120, −0.033] |
+### Full Test-set Performance
 
-### LLM comparison (fixed random subset of 200 test clips)
+The primary comparison uses all **2,990 test clips**. The main metric is
+wnDCG@5.
 
-<p align="center"><img src="results/figures/llm_subset.png" width="90%"></p>
+  -----------------------------------------------------------------------------------
+  Model                   wnDCG@5        Hit@5       Set-F1     Category     Category
+                                                                   top-1        top-2
+  ------------------ ------------ ------------ ------------ ------------ ------------
+  Keyword rules             0.302        76.2%        0.321        14.1%        24.2%
 
-### RL: training curve and threshold sensitivity (validation)
+  TF-IDF + Logistic         0.501        83.4%        0.387        48.7%        62.0%
+  Regression                                                             
 
-<p align="center"><img src="results/figures/rl_curve.png" width="90%"></p>
+  Transformer from          0.531        85.3%        0.447        52.1%        65.3%
+  scratch                                                                
 
-### Per kind of video
+  RoBERTa-base (BCE)        0.559    **88.8%**        0.472    **54.7%**        69.2%
 
-<p align="center"><img src="results/figures/per_category.png" width="65%"></p>
+  **RoBERTa-base +      **0.565**        88.2%    **0.489**        54.6%    **69.4%**
+  RL**                                                                   
+  -----------------------------------------------------------------------------------
 
-Concrete, visual categories (`#autos`, `#animals`, `#sports`, `#gaming`) reach wnDCG@5 ≈ 0.67–0.72. Categories defined by *format* rather than content (`#ads`, `#tvshow`, `#documentary`, `#people`) stay below 0.3: an ad for a car is described as a car.
+**Best result:** RoBERTa-base + RL achieves the highest wnDCG@5
+(**0.565**) and Set-F1 (**0.489**) among the full-test comparisons.
+RoBERTa-base with BCE achieves the highest Hit@5 (**88.8%**) and
+category top-1 accuracy (**54.7%**).
 
-### Efficiency
+### LLM Results
 
-<p align="center"><img src="results/figures/efficiency.png" width="65%"></p>
+LLM experiments are evaluated on a fixed 200-clip subset. On this
+subset:
 
-| Model | p50 latency | Throughput (batched) | Size | Params | Train time (2 vCPU) |
-|---|---|---|---|---|---|
-| Keyword rules | 0.18 ms | 5.9k/s | – | – | – |
-| TF-IDF + LogReg (TensorFlow) | 1.2 ms | 34k/s | 43 MB | 11.0M | 1 min |
-| Transformer from scratch (Keras) | 2.3 ms | 1.2k/s | 14 MB | 3.6M | 24 min |
-| RoBERTa-base + RL † | 113 ms | 32/s | 474 MB | 124.3M | 90 min |
-| LLM rerank | + one LLM call | – | – | – | ~263 input / 26 output tokens |
-| LLM zero-shot | one LLM call | – | – | – | ~899 input / 16 output tokens |
+  Model                            wnDCG@5
+  ------------------------------ ---------
+  RoBERTa-base + RL                  0.592
+  LLM zero-shot                      0.514
+  RoBERTa + RL → LLM reranking       0.543
 
-Latency is measured on **one CPU thread** (Keras through a `tf.function` taking raw strings). † measured in an earlier run of the same pipeline; the 474 MB checkpoint is not kept on disk.
-
-### Examples (test set, threshold 0.5)
-
-| Caption (model input) | Gold (other annotators) | Transformer (Keras) | RoBERTa + RL | LLM rerank (+ creative) |
-|---|---|---|---|---|
-| *a soup is been prepared and its been kept in the cup* | bowl dish food pot recipe serving soup spoon | soup food pot spoon bowl preparing | food soup pot bowl preparing dish kitchen | soup food pot bowl preparing (+ #souptime #comfortfood) |
-| *a man is interviewing stephen hawking with a laugh track in the background* | interviewing tvshow | education ❌ | interviewing interview news | interviewing interview tvshow host scientist (+ #stephenhawking #talkshow) |
-| *a helicopter flies over rooftops while gunfire is heard and a narrator mentions syria* | fighting flying news shooting war | city ❌ | flying | flying shooting soldier news war (+ #syria #warzone) |
-| *a bearded man discusses starcraft 2: wings of liberty and its production* | craft game gaming star | gaming | minecraft ❌ game character animation | game gaming discussing character star (+ #starcraft #gamedev) |
-
-Row 2 is pretraining at work: the from-scratch model misses the interview; RoBERTa doesn't. Rows 3–4 are the LLM's world knowledge: it knows Syria means `#news #war` and that StarCraft is not Minecraft.
-
-## 8. Discussion: trade-offs of the optimal model
-
-RoBERTa + RL is the best model on the primary metric, but it is not best on every axis, and it is not the right choice in every deployment.
-
-### 8.1 Quality vs cost
-
-| | Transformer (Keras) | RoBERTa + RL | Ratio |
-|---|---|---|---|
-| wnDCG@5 | 0.531 | 0.565 | +6% quality |
-| Latency, 1 CPU thread | 2.3 ms | 113 ms | ~50× slower |
-| Throughput | 1,239 /s | 32 /s | ~38× fewer |
-| Model file | 14 MB | 474 MB | ~34× larger |
-| Training (2 vCPU) | 24 min | 90 min | ~4× longer |
-
-Each step up the ladder buys less quality for more compute: TF-IDF → Transformer adds +0.030 wnDCG@5 for ~2× latency; Transformer → RoBERTa + RL adds +0.034 for ~50×. The gain is real (CI excludes 0) and concentrated where world knowledge matters (`#news` +0.099, `#food` +0.108, `#movies` +0.084, `#travel` +0.074 over the Transformer). It is **not uniform**: RoBERTa + RL is *worse* than the small Transformer on `#cooking` (−0.050), `#people` (−0.019) and `#tvshow` (−0.018). On the 110 cooking clips it picks the broader `#food` as the category for 73 (the Transformer: 55), and the two categories overlap heavily in the captions.
-
-### 8.2 What RL buys, and what it costs
-
-- **Gain:** at the default 0.5 threshold, RL lifts Set-F1 by +0.017 by emitting more tags (2.6 → 3.4 per clip, closer to gold's 4.1), and wnDCG@5 by +0.007.
-- **Cost:** when exactly 5 tags are shown, RL is slightly worse: F1@5 −0.004 (significant), Hit@5 88.8% → 88.2%, category macro-F1 0.458 → 0.444. RL optimises the *set* it chooses, at a small expense of the fixed-length ranking. Plus 11 min of extra training.
-- **The honest baseline:** tuning one global threshold on validation gives RoBERTa-BCE the same test Set-F1 (0.489 vs 0.489; Δ 0.000, n.s.). For this reward, RL acts largely as a learned calibration of the decision rule.
-- **Why keep it anyway:** (1) its validation Set-F1 curve is **flatter** across thresholds (within 0.01 of its best from 0.3 to 0.55, while BCE drops by 0.022 at 0.5), so it is robust when no tuning data exists or the data drifts; (2) the loop accepts **any black-box reward**: an LLM-judge score, click-through, or a diversity bonus, none of which a threshold can optimise. Set-F1 is the reward that needs RL the least; it is the proof that the loop works.
-
-### 8.3 The LLM: knowledge and creativity vs ranking quality and cost
-
-- **What it adds:** world knowledge the encoders lack (Syria → `#news #war`; StarCraft ≠ Minecraft), open-vocabulary creative tags for reach (`#souptime`, `#stephenhawking`), and no training at all. Zero-shot needs no labelled data, which matters for a new platform or a new language.
-- **What it loses:** reranking RoBERTa + RL ties on F1@5 (0.466 vs 0.459) but loses wnDCG@5 (0.543 vs 0.592). The diagnosis (`llm_rerank_diagnosis` in `metrics.json`):
-  - **About half is ordering.** Re-ordering the LLM's own 5 tags by RoBERTa's confidence recovers 0.543 → 0.567.
-  - **The rest is a product rule.** The prompt allows exactly one category tag. RoBERTa's top 5 hold 1.57 category tags on average and contain the true category for **68.5%** of clips; the LLM's single pick is right for **57%**. A hedge that the metric rewards was removed by a rule that the product wants.
-- **Weak vs strong candidates:** in an earlier iteration, when candidates came from a weaker from-scratch tagger, the same rerank *raised* F1@5 significantly (+0.022). The LLM helps most where the tagger is weak; on top of a strong tagger the headroom is gone.
-- **Cost:** one API call per clip (~260–900 input tokens), network latency, a per-call price, and nondeterminism; this repo caches every response for reproducibility.
-
-### 8.4 Why still keep the cheap models
-
-- **TF-IDF + LogReg** reaches 89% of the optimum's wnDCG@5 at ~1 ms, trains in a minute and is **interpretable**: each tag's weight per n-gram can be read off and debugged. It is the right first model on day one and the right fallback when the GPU/serving budget is zero.
-- **Keyword rules** are the floor (0.302) and show how much a naive tool misses, especially category tags (14% top-1).
-- **The Keras Transformer** is the deployable small model: 14 MB, raw strings in, 2 ms on a CPU, on-device friendly, and 94% of the optimum.
-
-### 8.5 Recommendation by scenario
-
-| Scenario | Choice | Why |
-|---|---|---|
-| Batch tagging of an archive (offline) | **RoBERTa + RL** | best quality; latency doesn't matter; 32 captions/s/thread is ~2.8M/day per core |
-| Real-time suggestions as the user types, CPU / mobile | **Keras Transformer** | 2 ms, 14 MB; loses 0.034 wnDCG@5 |
-| No labelled data yet / new domain | **LLM zero-shot** | no training; collect labels, then train a tagger |
-| Creator-facing "suggest hashtags" with trending/creative tags | **RoBERTa + RL → LLM rerank** | adds creative and world-knowledge tags; reorder by model confidence and allow two category tags to recover the ranking loss |
-| Zero budget, need explanations | **TF-IDF + LogReg** | 1 ms, interpretable weights |
-
-**Closing the gap:** distil RoBERTa + RL (and LLM-rerank outputs) into the 14 MB Transformer to keep most of the quality at 2 ms; or quantise/ONNX-export RoBERTa, which would run in a few ms on a GPU.
-
-## 9. Lessons learned (debugging notes)
-
-- **Weight decay plus an adaptive optimiser silently broke the linear baseline.** With Adam/Adagrad, an L2 term added to the gradient gets *normalised per coordinate*: for a sparse n-gram absent from a batch, even `1e-6` decay becomes a full-size step toward zero. Setting `weight_decay=0` lifted validation F1@5 from 0.27 to 0.39.
-- **Optimiser defaults differ across frameworks.** Keras' Adagrad starts its accumulator at 0.1 and puts ε inside the square root, which shrinks the first steps of rare n-grams ~100×. The TensorFlow TF-IDF model writes the update out by hand (accumulator 0, ε outside) to keep the behaviour that worked.
-- **TensorFlow and PyTorch's Triton can't share a process.** Both register the same LLVM options (`LLVM ERROR: inconsistency in registered CommandLine options`). Use the CPU build of PyTorch (no Triton) or `pip uninstall triton`.
-- **A `.keras` file can silently carry the optimizer.** Saving a model that wraps a *compiled* sub-model stored the AdamW moments too (43 MB instead of 14 MB); copying weights into an un-compiled instance fixed it.
-- **Label namespaces matter.** Category names doubled as topic tags at first and blurred the category signal; reserving them fixed it.
-- **Pick the metric before reading the leaderboard.** F1@5 and wnDCG@5 disagree about the LLM rerank (§8.3).
-- **Make long runs resumable, with atomic checkpoints.** A kill mid-save corrupted a 380 MB file; temp file + `os.replace` fixed it.
-- **Initialise output biases to the label prior.** With 367 labels and ~1% positives, starting at p = 0.5 wastes the first epoch.
-
-## 10. Limitations & next steps
-
-**Limitations**
-- **LLM numbers come from 200 clips**, so their CIs are wide. **The LLM outputs in `data/llm_cache/` were produced by Claude (`claude-opus-5-5`) answering the exact prompts in `src/hashtagger/llm/prompts.py`**, recorded through the script's `--export-pending` / `--import-answers` batch workflow because the build machine had no API access. Token counts are estimated (~4 characters per token) and LLM latency was not measured. Re-run with `--provider anthropic` (or `openai` / `ollama`) to replace them.
-- **Labels are weak supervision** (annotator consensus): what people *see*, not what is *trending*.
-- **Text-only.** The RoBERTa checkpoint (474 MB) is not committed (GitHub's 100 MB limit); `make roberta` reproduces it.
-
-**Next steps**
-- **Distillation** of RoBERTa + RL into the 14 MB Transformer.
-- **RLAIF:** an LLM judge as the RL reward, and LLM-judge win-rates as an evaluation metric.
-- **Multimodal:** add CLIP frame embeddings alongside the caption encoder.
-
----
-
-## Repository layout
-
-```text
-video-hashtag-llm/
-├── README.md
-├── LICENSE
-├── Makefile                      # make all | data | baselines | transformer | roberta [RESUME=1] | llm | eval | figures | test | demo
-├── requirements.txt
-├── configs/
-│   └── default.yaml              # every hyper-parameter in one place
-├── scripts/
-│   ├── download_data.sh          # MSR-VTT annotations (~4 MB) + NLTK data
-│   ├── 01_prepare_data.py        # consensus labels → data/processed/
-│   ├── 02_train_baselines.py     # keyword rules, TF-IDF + LogReg (TensorFlow)
-│   ├── 03_train_transformer.py   # Transformer from scratch (TensorFlow/Keras)
-│   ├── 04_finetune_roberta.py    # pretrained RoBERTa-base: BCE fine-tune, then RL; resumable
-│   ├── 05_llm_hashtags.py        # LLM zero-shot / rerank (live, cached or batch import)
-│   ├── 06_evaluate.py            # metrics, clean test, bootstrap CIs, trade-off tests, latency/size
-│   └── 07_make_figures.py
-├── src/hashtagger/
-│   ├── data.py                   # loading, split, weak-supervision labels, metric gains
-│   ├── text.py                   # POS tagging, lemmatisation, gerunds, stop-tags (NLTK)
-│   ├── metrics.py                # wnDCG / nDCG / wRecall / Hit@k, P/R/F1@k, Set-F1, category suite
-│   ├── predict.py                # Hashtagger inference API (RoBERTa + RL or Keras Transformer)
-│   ├── utils.py
-│   ├── models/
-│   │   ├── common.py             # label space, top-k / threshold decoding, threshold tuning
-│   │   ├── keyword.py
-│   │   ├── tfidf_linear.py       # TF-IDF + logistic regression in TensorFlow
-│   │   ├── keras_transformer.py  # TensorFlow/Keras Transformer encoder
-│   │   ├── pretrained.py         # RoBERTa-base backbone (HF or spaCy weights) + tagging head
-│   │   └── rl.py                 # set-F1 reward for the RL stage
-│   └── llm/
-│       ├── client.py             # Anthropic / OpenAI / Ollama + response cache + validators
-│       └── prompts.py
-├── docs/
-│   └── Caption_to_Hashtag_Report.docx   # full project report (Word)
-├── demo/
-│   ├── cli.py                    # python demo/cli.py "your caption" [--tagger transformer|roberta] [--llm anthropic]
-│   └── app.py                    # Gradio web UI
-├── tests/
-│   └── test_core.py              # metrics, RL reward, decoding, LLM parsing, TF logistic regression
-├── checkpoints/
-│   ├── keras_bce.keras           # 14 MB Keras Transformer (raw strings in), shipped for the demo
-│   ├── labels.json               # label space + tuned threshold
-│   └── keyword_prior.npy         # RoBERTa: run `make roberta`
-├── data/
-│   └── llm_cache/                # cached LLM responses (zero_shot.jsonl, hybrid.jsonl)
-└── results/
-    ├── metrics.json  results.md  dataset_stats.json
-    ├── train_log_*.json  roberta_resume.json  llm_*_usage.json  llm_subset_ids.json
-    ├── preds/llm_*_test_subset.json
-    └── figures/*.png
-```
-
-## Quickstart
-
-```bash
-git clone https://github.com/<you>/video-hashtag-llm && cd video-hashtag-llm
-python -m venv .venv && source .venv/bin/activate
-pip install torch --index-url https://download.pytorch.org/whl/cpu   # CPU build (no Triton → no LLVM clash with TensorFlow)
+These values are **not directly comparable with the full-test table**,
+because they are computed on a smaller subset. On the shared subset, the
+LLM reranking stage does not improve wnDCG@5 over RoBERTa + RL.
+
+### Statistical Comparison
+
+Selected paired-bootstrap comparisons on the full test set:
+
+  -----------------------------------------------------------------------
+  Comparison              Difference in wnDCG@5                    95% CI
+  ------------------- ------------------------- -------------------------
+  RoBERTa + RL                           +0.034        \[+0.026, +0.043\]
+  vs. Transformer                               
+  from scratch                                  
+
+  RoBERTa + RL                           +0.064        \[+0.055, +0.073\]
+  vs. TF-IDF +                                  
+  Logistic Regression                           
+
+  RoBERTa + RL                           +0.263        \[+0.252, +0.274\]
+  vs. Keyword rules                             
+
+  RoBERTa + RL                           +0.007        \[+0.003, +0.011\]
+  vs. RoBERTa (BCE)                             
+  -----------------------------------------------------------------------
+
+The reported intervals for these comparisons exclude zero, indicating
+positive differences under the paired-bootstrap analysis.
+
+### Result Visualizations
+
+The repository includes generated figures for overall model quality,
+category-level performance, RL training behavior, LLM comparisons, and
+efficiency.
+
+<p align="center">
+<img src="results/figures/quality_full_test.png" width="90%" alt="Full test-set model comparison">
+</p>
+<p align="center">
+<img src="results/figures/per_category.png" width="75%" alt="Performance by video category">
+</p>
+<p align="center">
+<img src="results/figures/rl_curve.png" width="75%" alt="RL training curve and threshold sensitivity">
+</p>
+<p align="center">
+<img src="results/figures/efficiency.png" width="75%" alt="Model efficiency comparison">
+</p>
+
+------------------------------------------------------------------------
+
+## 7. Discussion
+
+### 7.1 Pretraining Provides the Largest Modelling Gain
+
+RoBERTa improves over the Transformer trained from scratch by **0.028
+wnDCG@5** with BCE fine-tuning and **0.034** with RL fine-tuning. This
+suggests that pretrained contextual representations are useful for
+inferring concepts that may not appear literally in a short caption.
+
+The improvement is not uniform across categories. The project reports
+stronger gains in categories such as news, food, movies, and travel,
+while some categories show smaller gains or regressions. This indicates
+that model performance depends partly on the semantic structure of each
+category.
+
+### 7.2 RL Improves Set-level Prediction, but Its Benefit Is Metric-dependent
+
+Compared with RoBERTa trained using BCE, RL improves:
+
+-   Set-F1 at the default 0.5 threshold by **0.017**.
+-   wnDCG@5 by **0.007**.
+
+However, the RL model does not lead on every metric. RoBERTa-BCE has a
+slightly higher Hit@5 and category top-1 accuracy. In addition, tuning
+the BCE model's decision threshold on validation data matches the RL
+model's Set-F1 in the reported experiment.
+
+This suggests that the benefit of RL should be interpreted in relation
+to the chosen reward and deployment objective, rather than as a
+universal improvement over supervised fine-tuning.
+
+### 7.3 LLMs Add Generative Flexibility, but Do Not Automatically Improve Ranking
+
+The LLM can introduce world knowledge and creative, open-vocabulary
+suggestions. Nevertheless, the reranking experiment does not outperform
+RoBERTa + RL on wnDCG@5 in the evaluated subset.
+
+One observed issue is that prompt-level constraints---such as requiring
+exactly one category tag---can remove plausible alternatives that are
+useful under the evaluation metric. This highlights the importance of
+aligning prompting rules with the target evaluation and product
+requirements.
+
+### 7.4 Accuracy Must Be Considered Alongside Efficiency
+
+The best-performing model is not necessarily the best deployment choice.
+
+  Model                        wnDCG@5   CPU latency (p50)   Model size
+  -------------------------- --------- ------------------- ------------
+  Transformer from scratch       0.531              2.3 ms        14 MB
+  RoBERTa + RL                   0.565              113 ms       474 MB
+
+RoBERTa + RL provides higher ranking quality, but the lightweight Keras
+Transformer has substantially lower latency and storage requirements.
+The appropriate choice depends on whether the application prioritizes
+maximum offline quality or low-latency, resource-efficient inference.
+
+------------------------------------------------------------------------
+
+## 8. Limitations and Future Work
+
+### Limitations
+
+-   **Weakly supervised labels:** consensus among video captions is only
+    a proxy for hashtags that real users might choose. It does not
+    measure hashtag popularity, trends, or engagement.
+-   **Text-only input:** the current system uses captions rather than
+    visual video frames. Some visual concepts may therefore be
+    unavailable or ambiguous.
+-   **LLM evaluation scale:** LLM results are based on a fixed 200-clip
+    subset and should be interpreted with this limitation in mind.
+-   **Evaluation coverage:** automatic metrics cannot fully assess
+    whether a plausible but unseen hashtag is useful. Human evaluation
+    or online engagement measurements would provide complementary
+    evidence.
+-   **Compute and model size:** the RoBERTa checkpoint is comparatively
+    large and is not included in the repository because of GitHub's
+    file-size limit.
+
+### Future Work
+
+1.  **Multimodal learning:** incorporate video-frame representations,
+    for example using CLIP embeddings, alongside the text encoder.
+2.  **Knowledge- or preference-aware rewards:** investigate
+    LLM-as-a-judge or user-feedback signals as alternative reward
+    functions.
+3.  **Model compression:** distill the RoBERTa model into the
+    lightweight Transformer or explore quantization and optimized
+    inference.
+4.  **Human evaluation:** assess relevance, usefulness, and diversity of
+    generated hashtags with human annotators.
+5.  **Real-world evaluation:** measure tag acceptance, editing behavior,
+    and downstream discovery or engagement when suitable platform data
+    is available.
+
+------------------------------------------------------------------------
+
+## 9. Reproducibility and Quickstart
+
+The project is designed to run on CPU, although training can be faster
+with a suitable GPU. The reported end-to-end runtime is approximately
+**2.3 hours on a 2-core CPU**, depending on environment and dependency
+versions.
+
+### Installation
+
+``` bash
+git clone https://github.com/<your-username>/video-hashtag-llm.git
+cd video-hashtag-llm
+
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
-
-# Try the shipped 14 MB Keras model right away
-python demo/cli.py "a woman applies eye makeup in front of a mirror"
-python demo/app.py                      # http://localhost:7860
-
-# Reproduce everything (~2 h on a 2-core CPU; much faster on a GPU)
-make all
-make roberta RESUME=1                   # continue an interrupted RoBERTa run
-make test
-
-# Re-run the LLM stages live
-export ANTHROPIC_API_KEY=...            # or OPENAI_API_KEY / a local Ollama server
-python scripts/05_llm_hashtags.py --stage hybrid --provider anthropic --model claude-opus-5-5
 ```
 
-## References
+### Run the Demo
 
-- J. Xu, T. Mei, T. Yao, Y. Rui. *MSR-VTT: A Large Video Description Dataset for Bridging Video and Language.* CVPR 2016.
-- Y. Liu et al. *RoBERTa: A Robustly Optimized BERT Pretraining Approach.* arXiv:1907.11692, 2019.
-- A. Ahmadian et al. *Back to Basics: Revisiting REINFORCE-Style Optimization for Learning from Human Feedback in LLMs.* ACL 2024.
-- K. Järvelin, J. Kekäläinen. *Cumulated gain-based evaluation of IR techniques.* ACM TOIS, 2002.
+The lightweight Keras Transformer checkpoint is included for inference:
+
+``` bash
+python demo/cli.py "a woman applies eye makeup in front of a mirror"
+python demo/app.py
+```
+
+The Gradio interface is available locally at `http://localhost:7860`.
+
+**Below are real outputs from this repository** — the CLI run on the
+shipped 14 MB Keras Transformer checkpoint, and the Gradio web UI
+answering two different captions live:
+
+<p align="center">
+<img src="docs/screenshots/demo_cli.png" width="80%" alt="CLI demo: a surfer rides a big wave in the ocean -> #water #surfing #wave #riding #sports #sea #ocean #beach">
+</p>
+<p align="center">
+<img src="docs/screenshots/demo_gradio_food.png" width="90%" alt="Gradio demo: a chef slices onions and fries them in a pan on a stove -> #food #onion #chef #vegetable #pan #kitchen #adding #frying">
+</p>
+<p align="center">
+<img src="docs/screenshots/demo_gradio_music.png" width="90%" alt="Gradio demo: a rock band is playing on stage -> #band #stage #performing #rock #music #song #singing #concert">
+</p>
+
+### Reproduce the Experiments
+
+``` bash
+# Run the complete pipeline
+make all
+
+# Resume an interrupted RoBERTa training run
+make roberta RESUME=1
+
+# Run tests
+make test
+```
+
+### Run LLM Experiments
+
+Configure a supported provider and API key, or use a local Ollama setup:
+
+``` bash
+export ANTHROPIC_API_KEY=<your-api-key>
+python scripts/05_llm_hashtags.py --stage hybrid --provider anthropic --model <model-name>
+```
+
+LLM responses are cached to support repeatable evaluation without
+repeatedly calling the provider.
+
+------------------------------------------------------------------------
+
+## 10. Repository Structure
+
+``` text
+video-hashtag-llm/
+├── configs/                 # Experiment configuration
+├── data/
+│   └── llm_cache/           # Cached LLM responses
+├── demo/                    # CLI and Gradio demo
+├── docs/                    # Extended project report + demo screenshots
+│   └── screenshots/         # Real CLI and Gradio demo screenshots
+├── scripts/                 # Data, training, evaluation, and plotting scripts
+├── src/hashtagger/
+│   ├── models/              # Baseline, Transformer, RoBERTa, and RL models
+│   ├── llm/                 # LLM clients, prompts, and response validation
+│   ├── data.py              # Data loading and weak-label construction
+│   ├── metrics.py           # Evaluation metrics
+│   └── predict.py           # Inference interface
+├── checkpoints/             # Lightweight demo checkpoint and label metadata
+├── results/
+│   ├── figures/             # Result visualizations
+│   ├── metrics.json         # Raw evaluation metrics
+│   └── results.md           # Detailed result tables
+├── tests/                   # Unit and core functionality tests
+├── Makefile
+├── requirements.txt
+└── README.md
+```
+
+------------------------------------------------------------------------
+
+## 11. Technologies
+
+-   **Programming:** Python
+-   **Deep learning:** PyTorch, TensorFlow, Keras
+-   **NLP:** NLTK, TF-IDF, RoBERTa, Hugging Face-compatible pretrained
+    models
+-   **Optimization:** Binary cross-entropy, REINFORCE, RLOO
+-   **LLM integration:** Anthropic, OpenAI, Ollama, and vLLM-compatible
+    client support
+-   **Evaluation:** nDCG, weighted nDCG, precision/recall/F1, paired
+    bootstrap
+-   **Demo:** Gradio
+
+------------------------------------------------------------------------
+
+## 12. References
+
+1.  Xu, J., Mei, T., Yao, T., & Rui, Y. (2016). *MSR-VTT: A Large Video
+    Description Dataset for Bridging Video and Language.* Proceedings of
+    CVPR.
+2.  Liu, Y., et al. (2019). *RoBERTa: A Robustly Optimized BERT
+    Pretraining Approach.* arXiv:1907.11692.
+3.  Rennie, S., et al. (2017). *Self-critical Sequence Training for
+    Image Captioning.* Proceedings of CVPR.
+4.  Ahmadian, A., et al. (2024). *Back to Basics: Revisiting
+    REINFORCE-Style Optimization for Learning from Human Feedback in
+    LLMs.* Proceedings of ACL.
+5.  Järvelin, K., & Kekäläinen, J. (2002). *Cumulated Gain-based
+    Evaluation of IR Techniques.* ACM Transactions on Information
+    Systems.
+
+------------------------------------------------------------------------
+
+## Notes
+
+-   All reported quantitative results are taken from the experiment
+    outputs included in this repository.
+-   The LLM comparison uses a 200-example subset; it is reported
+    separately from full-test results.
+-   The RoBERTa checkpoint is not committed to the repository due to
+    GitHub's file-size limit. It can be reproduced using the training
+    pipeline.
+-   Replace `<your-username>` in the clone URL with the actual GitHub
+    account or repository URL before publishing.
