@@ -1,8 +1,8 @@
 # Caption-to-Hashtag Generation with RoBERTa, Reinforcement Learning, and LLMs
 
 An end-to-end NLP project that generates relevant hashtags from a
-one-sentence video description. The system is evaluated across **20
-video categories** and compares lightweight baselines, neural text
+one-sentence video description. The system is evaluated across 20
+video categories and compares lightweight baselines, neural text
 encoders, a pretrained transformer, reinforcement-learning fine-tuning,
 and LLM-based generation and reranking.
 
@@ -371,7 +371,7 @@ subset:
   LLM zero-shot                      0.514
   RoBERTa + RL → LLM reranking       0.543
 
-These values are **not directly comparable with the full-test table**,
+These values are not directly comparable with the full-test table,
 because they are computed on a smaller subset. On the shared subset, the
 LLM reranking stage does not improve wnDCG@5 over RoBERTa + RL.
 
@@ -440,8 +440,8 @@ category.
 
 Compared with RoBERTa trained using BCE, RL improves:
 
--   Set-F1 at the default 0.5 threshold by **0.017**.
--   wnDCG@5 by **0.007**.
+-   Set-F1 at the default 0.5 threshold by 0.017.
+-   wnDCG@5 by 0.007.
 
 However, the RL model does not lead on every metric. RoBERTa-BCE has a
 slightly higher Hit@5 and category top-1 accuracy. In addition, tuning
@@ -522,7 +522,7 @@ maximum offline quality or low-latency, resource-efficient inference.
 
 The project is designed to run on CPU, although training can be faster
 with a suitable GPU. The reported end-to-end runtime is approximately
-**2.3 hours on a 2-core CPU**, depending on environment and dependency
+2.3 hours on a 2-core CPU, depending on environment and dependency
 versions.
 
 ### Installation
@@ -617,9 +617,7 @@ video-hashtag-llm/
 ├── requirements.txt
 └── README.md
 ```
-
 ------------------------------------------------------------------------
-
 ## 11. Technologies
 
 -   **Programming:** Python
@@ -632,35 +630,9 @@ video-hashtag-llm/
 -   **Evaluation:** nDCG, weighted nDCG, precision/recall/F1, paired
     bootstrap
 -   **Demo:** Gradio
-
-------------------------------------------------------------------------
-
-## 12. References
-
-1.  Xu, J., Mei, T., Yao, T., & Rui, Y. (2016). *MSR-VTT: A Large Video
-    Description Dataset for Bridging Video and Language.* Proceedings of
-    CVPR.
-2.  Liu, Y., et al. (2019). *RoBERTa: A Robustly Optimized BERT
-    Pretraining Approach.* arXiv:1907.11692.
-3.  Rennie, S., et al. (2017). *Self-critical Sequence Training for
-    Image Captioning.* Proceedings of CVPR.
-4.  Ahmadian, A., et al. (2024). *Back to Basics: Revisiting
-    REINFORCE-Style Optimization for Learning from Human Feedback in
-    LLMs.* Proceedings of ACL.
-5.  Järvelin, K., & Kekäläinen, J. (2002). *Cumulated Gain-based
-    Evaluation of IR Techniques.* ACM Transactions on Information
-    Systems.
-
 ------------------------------------------------------------------------
 
 ## Notes
-
--   All reported quantitative results are taken from the experiment
-    outputs included in this repository.
--   The LLM comparison uses a 200-example subset; it is reported
-    separately from full-test results.
 -   The RoBERTa checkpoint is not committed to the repository due to
     GitHub's file-size limit. It can be reproduced using the training
     pipeline.
--   Replace `<your-username>` in the clone URL with the actual GitHub
-    account or repository URL before publishing.
