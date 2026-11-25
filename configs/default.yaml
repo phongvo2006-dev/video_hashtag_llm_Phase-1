@@ -4,7 +4,7 @@
 seed: 42
 
 data:
-  raw_json: data/raw/msrvtt_data/MSRVTT_data.json
+  raw_json: dataset/MSRVTT_data.json
   processed_dir: data/processed
   # Standard MSR-VTT split (Xu et al., 2016): video0-6512 / 6513-7009 / 7010-9999
   split_boundaries: {train_end: 6513, val_end: 7010}

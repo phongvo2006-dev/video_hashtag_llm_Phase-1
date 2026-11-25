@@ -75,6 +75,10 @@ The standard split used in this project is:
 | Validation | 497 |
 | Test | 2,990 |
 
+The caption/category annotations this project needs (not the raw video
+files, which aren't used) are included directly in [`dataset/`](dataset/)
+— no separate download step is required to run the pipeline.
+
 MSR-VTT was selected because it provides both natural-language
 descriptions and video-category annotations. This makes it possible to
 construct a reproducible hashtag-prediction task without relying on
@@ -503,6 +507,7 @@ repeatedly calling the provider.
 ``` text
 video-hashtag-llm/
 ├── configs/                 # Experiment configuration
+├── dataset/                 # MSR-VTT captions/splits (committed, ready to use)
 ├── data/
 │   └── llm_cache/           # Cached LLM responses
 ├── demo/                    # CLI and Gradio demo
