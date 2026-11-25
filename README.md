@@ -75,6 +75,23 @@ The standard split used in this project is:
 | Validation | 497 |
 | Test | 2,990 |
 
+**Download:** this project only needs the captions/splits, not the raw
+video files. Download and extract into `data/raw/msrvtt_data/`:
+
+```bash
+wget https://github.com/ArrowLuo/CLIP4Clip/releases/download/v0.0/msrvtt_data.zip
+unzip msrvtt_data.zip -d data/raw/
+```
+
+This provides `MSRVTT_data.json`, `MSRVTT_train.7k.csv`,
+`MSRVTT_train.9k.csv`, and `MSRVTT_JSFUSION_test.csv` — the exact files
+`src/hashtagger/data.py` expects. The original MSR Challenge dataset
+page no longer hosts these files reliably, so this CLIP4Clip-packaged
+mirror is the commonly used source. (The raw `.mp4` clips themselves
+are not used by this project — it works from captions and category
+labels only — but if needed, they're available from the *Frozen in
+Time* mirror: `wget https://www.robots.ox.ac.uk/~maxbain/frozen-in-time/data/MSRVTT.zip`.)
+
 MSR-VTT was selected because it provides both natural-language
 descriptions and video-category annotations. This makes it possible to
 construct a reproducible hashtag-prediction task without relying on
